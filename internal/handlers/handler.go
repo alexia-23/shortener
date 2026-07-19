@@ -1,34 +1,18 @@
 package handlers
 
-import (
-	"net/http"
-
-	"github.com/alexia-23/shortener/internal/repository"
-)
+import "net/http"
 
 type Handler struct {
-	repository *repository.ShortLinkRepository
+	repository ShortLinkRepository
 }
 
-func NewHandler(repo *repository.ShortLinkRepository) *Handler {
+func NewHandler(repo ShortLinkRepository) *Handler {
 	return &Handler{
 		repository: repo,
 	}
 }
 
-func (handler *Handler) ServeHTTP(
-	w http.ResponseWriter,
-	r *http.Request,
-) {
-	if r.Method == http.MethodGet {
-		handler.handleRedirect(w, r)
-		return
-	}
-
-	if r.Method == http.MethodPost {
-		handler.handleCreateShortLink(w, r)
-		return
-	}
-
-	w.WriteHeader(http.StatusBadRequest)
+func (handler *Handler) RegisterRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("POST /{$}", handler.handleCreateShortLink)
+	mux.HandleFunc("GET /{id}", handler.handleGetSourceLink)
 }

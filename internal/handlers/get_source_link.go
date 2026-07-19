@@ -1,20 +1,12 @@
 package handlers
 
-import (
-	"net/http"
-	"strings"
-)
+import "net/http"
 
-func (handler *Handler) handleRedirect(
+func (handler *Handler) handleGetSourceLink(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
-	id := strings.TrimPrefix(r.URL.Path, "/")
-
-	if id == "" || strings.Contains(id, "/") {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
+	id := r.PathValue("id")
 
 	originalURL, ok := handler.repository.Get(id)
 	if !ok {

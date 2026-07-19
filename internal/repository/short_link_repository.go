@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"encoding/base64"
 	"strconv"
 	"sync"
 )
@@ -23,7 +24,7 @@ func (repository *ShortLinkRepository) Save(originalURL string) string {
 
 	repository.counter++
 
-	id := strconv.Itoa(repository.counter)
+	id := createID(repository.counter)
 	repository.links[id] = originalURL
 
 	return id
@@ -36,4 +37,10 @@ func (repository *ShortLinkRepository) Get(id string) (string, bool) {
 	originalURL, found := repository.links[id]
 
 	return originalURL, found
+}
+
+func createID(counter int) string {
+	number := strconv.Itoa(counter)
+
+	return base64.RawURLEncoding.EncodeToString([]byte(number))
 }

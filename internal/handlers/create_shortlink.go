@@ -9,10 +9,6 @@ func (handler *Handler) handleCreateShortLink(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
-	if r.URL.Path != "/" {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
