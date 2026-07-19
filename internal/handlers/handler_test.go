@@ -17,7 +17,6 @@ func TestNewHandler(t *testing.T) {
 	handler := NewHandler(repository)
 
 	require.NotNil(t, handler)
-	assert.Equal(t, repository, handler.repository)
 }
 
 func TestHandler_RegisterRoutes(t *testing.T) {

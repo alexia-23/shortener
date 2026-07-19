@@ -48,11 +48,12 @@ func TestHandler_handleGetSourceLink(t *testing.T) {
 				nil,
 			)
 
-			request.SetPathValue("id", test.id)
+			mux := http.NewServeMux()
+			handler.RegisterRoutes(mux)
 
 			recorder := httptest.NewRecorder()
 
-			handler.handleGetSourceLink(recorder, request)
+			mux.ServeHTTP(recorder, request)
 
 			response := recorder.Result()
 			defer response.Body.Close()

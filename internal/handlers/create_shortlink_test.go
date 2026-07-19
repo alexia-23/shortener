@@ -74,9 +74,14 @@ func TestHandler_handleCreateShortLink(t *testing.T) {
 				test.body(),
 			)
 
+			request.Header.Set("Content-Type", "text/plain")
+
+			mux := http.NewServeMux()
+			handler.RegisterRoutes(mux)
+
 			recorder := httptest.NewRecorder()
 
-			handler.handleCreateShortLink(recorder, request)
+			mux.ServeHTTP(recorder, request)
 
 			response := recorder.Result()
 			defer response.Body.Close()
