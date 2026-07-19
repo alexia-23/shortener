@@ -2,23 +2,31 @@ package handlers
 
 import (
 	"net/http"
-	"sync"
+
+	"github.com/alexia-23/shortener/internal/repository"
 )
 
-var (
-	links   = make(map[string]string)
-	counter int
-	mutex   sync.RWMutex
-)
+type Handler struct {
+	repository *repository.ShortLinkRepository
+}
 
-func Handler(w http.ResponseWriter, r *http.Request) {
+func NewHandler(repo *repository.ShortLinkRepository) *Handler {
+	return &Handler{
+		repository: repo,
+	}
+}
+
+func (handler *Handler) ServeHTTP(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	if r.Method == http.MethodGet {
-		handleRedirect(w, r)
+		handler.handleRedirect(w, r)
 		return
 	}
 
 	if r.Method == http.MethodPost {
-		handleCreateShortLink(w, r)
+		handler.handleCreateShortLink(w, r)
 		return
 	}
 

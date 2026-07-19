@@ -5,7 +5,10 @@ import (
 	"strings"
 )
 
-func handleRedirect(w http.ResponseWriter, r *http.Request) {
+func (handler *Handler) handleRedirect(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	id := strings.TrimPrefix(r.URL.Path, "/")
 
 	if id == "" || strings.Contains(id, "/") {
@@ -13,10 +16,7 @@ func handleRedirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mutex.RLock()
-	originalURL, ok := links[id]
-	mutex.RUnlock()
-
+	originalURL, ok := handler.repository.Get(id)
 	if !ok {
 		w.WriteHeader(http.StatusBadRequest)
 		return

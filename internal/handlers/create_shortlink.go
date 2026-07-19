@@ -3,10 +3,12 @@ package handlers
 import (
 	"io"
 	"net/http"
-	"strconv"
 )
 
-func handleCreateShortLink(w http.ResponseWriter, r *http.Request) {
+func (handler *Handler) handleCreateShortLink(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	if r.URL.Path != "/" {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -23,19 +25,11 @@ func handleCreateShortLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mutex.Lock()
-	counter++
-	id := strconv.Itoa(counter)
-	links[id] = string(body)
-	mutex.Unlock()
-
+	id := handler.repository.Save(string(body))
 	shortURL := "http://localhost:8080/" + id
 
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusCreated)
 
-	_, err = w.Write([]byte(shortURL))
-	if err != nil {
-		return
-	}
+	_, _ = w.Write([]byte(shortURL))
 }
