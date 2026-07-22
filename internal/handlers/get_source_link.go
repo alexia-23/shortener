@@ -1,16 +1,20 @@
 package handlers
 
-import "net/http"
+import (
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
+)
 
 func (handler *Handler) handleGetSourceLink(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
-	id := r.PathValue("id")
+	id := chi.URLParam(r, "id")
 
 	originalURL, ok := handler.repository.Get(id)
 	if !ok {
-		w.WriteHeader(http.StatusBadRequest)
+		writeBadRequest(w)
 		return
 	}
 

@@ -10,12 +10,9 @@ import (
 
 func main() {
 	shortLinkRepository := repository.NewShortLinkRepository()
-	handler := handlers.NewHandler(shortLinkRepository)
+	router := handlers.NewRouter(shortLinkRepository)
 
-	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux)
-
-	err := http.ListenAndServe(":8080", mux)
+	err := http.ListenAndServe(":8080", router)
 	if err != nil {
 		log.Fatal(err)
 	}

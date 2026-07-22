@@ -22,6 +22,7 @@ func TestHandler_handleCreateShortLink(t *testing.T) {
 	tests := []struct {
 		name            string
 		body            func() io.Reader
+		contentType     string
 		wantStatusCode  int
 		wantBody        string
 		wantContentType string
@@ -32,6 +33,7 @@ func TestHandler_handleCreateShortLink(t *testing.T) {
 			body: func() io.Reader {
 				return strings.NewReader("https://example.com")
 			},
+			contentType:     "text/plain",
 			wantStatusCode:  http.StatusCreated,
 			wantBody:        "http://localhost:8080/MQ",
 			wantContentType: "text/plain",
@@ -42,6 +44,51 @@ func TestHandler_handleCreateShortLink(t *testing.T) {
 			body: func() io.Reader {
 				return strings.NewReader("")
 			},
+			contentType:     "text/plain",
+			wantStatusCode:  http.StatusBadRequest,
+			wantBody:        "",
+			wantContentType: "",
+			wantSavedURL:    "",
+		},
+		{
+			name: "invalid URL",
+			body: func() io.Reader {
+				return strings.NewReader("hello")
+			},
+			contentType:     "text/plain",
+			wantStatusCode:  http.StatusBadRequest,
+			wantBody:        "",
+			wantContentType: "",
+			wantSavedURL:    "",
+		},
+		{
+			name: "URL with spaces",
+			body: func() io.Reader {
+				return strings.NewReader("  https://example.com  ")
+			},
+			contentType:     "text/plain",
+			wantStatusCode:  http.StatusCreated,
+			wantBody:        "http://localhost:8080/MQ",
+			wantContentType: "text/plain",
+			wantSavedURL:    "https://example.com",
+		},
+		{
+			name: "text plain with charset",
+			body: func() io.Reader {
+				return strings.NewReader("https://example.com")
+			},
+			contentType:     "text/plain; charset=utf-8",
+			wantStatusCode:  http.StatusCreated,
+			wantBody:        "http://localhost:8080/MQ",
+			wantContentType: "text/plain",
+			wantSavedURL:    "https://example.com",
+		},
+		{
+			name: "wrong content type",
+			body: func() io.Reader {
+				return strings.NewReader("https://example.com")
+			},
+			contentType:     "application/json",
 			wantStatusCode:  http.StatusBadRequest,
 			wantBody:        "",
 			wantContentType: "",
@@ -52,6 +99,21 @@ func TestHandler_handleCreateShortLink(t *testing.T) {
 			body: func() io.Reader {
 				return errorReader{}
 			},
+			contentType:     "text/plain",
+			wantStatusCode:  http.StatusBadRequest,
+			wantBody:        "",
+			wantContentType: "",
+			wantSavedURL:    "",
+		},
+		{
+			name: "body is too large",
+			body: func() io.Reader {
+				return strings.NewReader(
+					"https://example.com/" +
+						strings.Repeat("a", int(maxRequestBodySize)),
+				)
+			},
+			contentType:     "text/plain",
 			wantStatusCode:  http.StatusBadRequest,
 			wantBody:        "",
 			wantContentType: "",
@@ -66,7 +128,7 @@ func TestHandler_handleCreateShortLink(t *testing.T) {
 				links:  make(map[string]string),
 			}
 
-			handler := NewHandler(repository)
+			router := NewRouter(repository)
 
 			request := httptest.NewRequest(
 				http.MethodPost,
@@ -74,14 +136,13 @@ func TestHandler_handleCreateShortLink(t *testing.T) {
 				test.body(),
 			)
 
-			request.Header.Set("Content-Type", "text/plain")
-
-			mux := http.NewServeMux()
-			handler.RegisterRoutes(mux)
+			if test.contentType != "" {
+				request.Header.Set("Content-Type", test.contentType)
+			}
 
 			recorder := httptest.NewRecorder()
 
-			mux.ServeHTTP(recorder, request)
+			router.ServeHTTP(recorder, request)
 
 			response := recorder.Result()
 			defer response.Body.Close()
