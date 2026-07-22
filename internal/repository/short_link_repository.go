@@ -8,7 +8,7 @@ import (
 
 type ShortLinkRepository struct {
 	links   map[string]string
-	counter int
+	counter uint64
 	mutex   sync.RWMutex
 }
 
@@ -39,8 +39,8 @@ func (repository *ShortLinkRepository) Get(id string) (string, bool) {
 	return originalURL, found
 }
 
-func createID(counter int) string {
-	number := strconv.Itoa(counter)
+func createID(counter uint64) string {
+	number := strconv.FormatUint(counter, 10)
 
 	return base64.RawURLEncoding.EncodeToString([]byte(number))
 }

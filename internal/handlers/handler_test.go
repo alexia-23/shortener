@@ -3,76 +3,96 @@ package handlers
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewHandler(t *testing.T) {
+func TestNewRouter(t *testing.T) {
 	repository := &mockRepository{
 		links: make(map[string]string),
 	}
 
-	handler := NewHandler(repository)
+	router := NewRouter(repository)
 
-	require.NotNil(t, handler)
+	require.NotNil(t, router)
 }
 
-func TestHandler_RegisterRoutes(t *testing.T) {
-	repository := &mockRepository{
-		links: make(map[string]string),
-	}
-
-	handler := NewHandler(repository)
-
-	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux)
-
+func TestRouter_Routes(t *testing.T) {
 	tests := []struct {
-		name        string
-		method      string
-		path        string
-		wantPattern string
+		name           string
+		method         string
+		path           string
+		body           string
+		links          map[string]string
+		wantStatusCode int
 	}{
 		{
-			name:        "create short link route",
-			method:      http.MethodPost,
-			path:        "/",
-			wantPattern: "POST /{$}",
+			name:           "create short link route",
+			method:         http.MethodPost,
+			path:           "/",
+			body:           "https://example.com",
+			links:          make(map[string]string),
+			wantStatusCode: http.StatusCreated,
 		},
 		{
-			name:        "get source link route",
-			method:      http.MethodGet,
-			path:        "/MQ",
-			wantPattern: "GET /{id}",
+			name:   "get source link route",
+			method: http.MethodGet,
+			path:   "/MQ",
+			links: map[string]string{
+				"MQ": "https://example.com",
+			},
+			wantStatusCode: http.StatusTemporaryRedirect,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			repository := &mockRepository{
+				saveID: "MQ",
+				links:  test.links,
+			}
+
+			router := NewRouter(repository)
+
 			request := httptest.NewRequest(
 				test.method,
 				test.path,
-				nil,
+				strings.NewReader(test.body),
 			)
+			request.Header.Set("Content-Type", "text/plain")
 
-			_, pattern := mux.Handler(request)
+			recorder := httptest.NewRecorder()
 
-			assert.Equal(t, test.wantPattern, pattern)
+			router.ServeHTTP(recorder, request)
+
+			assert.Equal(
+				t,
+				test.wantStatusCode,
+				recorder.Code,
+			)
 		})
 	}
 }
 
-func TestHandler_InvalidRequest(t *testing.T) {
+func TestNewHandler_PanicsOnNilRepository(t *testing.T) {
+	require.PanicsWithValue(
+		t,
+		"handlers: nil repository",
+		func() {
+			NewHandler(nil)
+		},
+	)
+}
+
+func TestRouter_InvalidRequest(t *testing.T) {
 	repository := &mockRepository{
 		links: make(map[string]string),
 	}
 
-	handler := NewHandler(repository)
-
-	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux)
+	router := NewRouter(repository)
 
 	tests := []struct {
 		name   string
@@ -111,7 +131,7 @@ func TestHandler_InvalidRequest(t *testing.T) {
 
 			recorder := httptest.NewRecorder()
 
-			mux.ServeHTTP(recorder, request)
+			router.ServeHTTP(recorder, request)
 
 			assert.Equal(
 				t,

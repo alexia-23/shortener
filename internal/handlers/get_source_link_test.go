@@ -40,7 +40,7 @@ func TestHandler_handleGetSourceLink(t *testing.T) {
 				links: test.links,
 			}
 
-			handler := NewHandler(repository)
+			router := NewRouter(repository)
 
 			request := httptest.NewRequest(
 				http.MethodGet,
@@ -48,12 +48,9 @@ func TestHandler_handleGetSourceLink(t *testing.T) {
 				nil,
 			)
 
-			mux := http.NewServeMux()
-			handler.RegisterRoutes(mux)
-
 			recorder := httptest.NewRecorder()
 
-			mux.ServeHTTP(recorder, request)
+			router.ServeHTTP(recorder, request)
 
 			response := recorder.Result()
 			defer response.Body.Close()

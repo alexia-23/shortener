@@ -43,7 +43,7 @@ func TestShortLinkRepository_SaveCreatesDifferentIDs(t *testing.T) {
 func TestCreateID(t *testing.T) {
 	tests := []struct {
 		name    string
-		counter int
+		counter uint64
 		want    string
 	}{
 		{
