@@ -40,7 +40,7 @@ func TestHandler_handleGetSourceLink(t *testing.T) {
 				links: test.links,
 			}
 
-			router := NewRouter(repository)
+			router := NewRouter(repository, "http://localhost:8080")
 
 			request := httptest.NewRequest(
 				http.MethodGet,

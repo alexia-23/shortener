@@ -15,7 +15,7 @@ func TestNewRouter(t *testing.T) {
 		links: make(map[string]string),
 	}
 
-	router := NewRouter(repository)
+	router := NewRouter(repository, "http://localhost:8080")
 
 	require.NotNil(t, router)
 }
@@ -55,7 +55,7 @@ func TestRouter_Routes(t *testing.T) {
 				links:  test.links,
 			}
 
-			router := NewRouter(repository)
+			router := NewRouter(repository, "http://localhost:8080")
 
 			request := httptest.NewRequest(
 				test.method,
@@ -82,7 +82,7 @@ func TestNewHandler_PanicsOnNilRepository(t *testing.T) {
 		t,
 		"handlers: nil repository",
 		func() {
-			NewHandler(nil)
+			NewHandler(nil, "http://localhost:8080")
 		},
 	)
 }
@@ -92,7 +92,7 @@ func TestRouter_InvalidRequest(t *testing.T) {
 		links: make(map[string]string),
 	}
 
-	router := NewRouter(repository)
+	router := NewRouter(repository, "http://localhost:8080")
 
 	tests := []struct {
 		name   string

@@ -128,7 +128,7 @@ func TestHandler_handleCreateShortLink(t *testing.T) {
 				links:  make(map[string]string),
 			}
 
-			router := NewRouter(repository)
+			router := NewRouter(repository, "http://localhost:8080")
 
 			request := httptest.NewRequest(
 				http.MethodPost,

@@ -45,7 +45,7 @@ func (handler *Handler) handleCreateShortLink(
 	}
 
 	id := handler.repository.Save(originalURL)
-	shortURL := "http://localhost:8080/" + id
+	shortURL := handler.baseURL + "/" + id
 
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusCreated)
