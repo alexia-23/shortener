@@ -9,7 +9,7 @@ import (
 type ShortLinkRepository struct {
 	links   map[string]string
 	counter uint64
-	mutex   sync.RWMutex
+	mutex   sync.Mutex
 }
 
 func NewShortLinkRepository() *ShortLinkRepository {
@@ -31,8 +31,8 @@ func (repository *ShortLinkRepository) Save(originalURL string) string {
 }
 
 func (repository *ShortLinkRepository) Get(id string) (string, bool) {
-	repository.mutex.RLock()
-	defer repository.mutex.RUnlock()
+	repository.mutex.Lock()
+	defer repository.mutex.Unlock()
 
 	originalURL, found := repository.links[id]
 

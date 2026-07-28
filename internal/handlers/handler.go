@@ -1,7 +1,5 @@
 package handlers
 
-import "strings"
-
 type Handler struct {
 	repository ShortLinkRepository
 	baseURL    string
@@ -14,6 +12,6 @@ func NewHandler(repo ShortLinkRepository, baseURL string) *Handler {
 
 	return &Handler{
 		repository: repo,
-		baseURL:    strings.TrimRight(baseURL, "/"),
+		baseURL:    baseURL,
 	}
 }

@@ -6,7 +6,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func NewRouter(repo ShortLinkRepository, baseURL string) chi.Router {
+func NewRouter(repo ShortLinkRepository, baseURL string) *chi.Mux {
 	handler := NewHandler(repo, baseURL)
 
 	router := chi.NewRouter()
