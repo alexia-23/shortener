@@ -123,9 +123,13 @@ func TestHandler_handleCreateShortLink(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			service := &mockService{
-				createID:    "MQ",
-				sourceLinks: make(map[string]string),
+			service := NewMockShortLinkService(t)
+
+			if test.wantSavedURL != "" {
+				service.EXPECT().
+					CreateShortLink(test.wantSavedURL).
+					Return("MQ", nil).
+					Once()
 			}
 
 			router := NewRouter(service, "http://localhost:8080")
@@ -166,12 +170,6 @@ func TestHandler_handleCreateShortLink(t *testing.T) {
 				t,
 				test.wantContentType,
 				response.Header.Get("Content-Type"),
-			)
-
-			assert.Equal(
-				t,
-				test.wantSavedURL,
-				service.createdURL,
 			)
 		})
 	}

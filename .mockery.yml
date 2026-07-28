@@ -1,0 +1,22 @@
+template: testify
+force-file-write: true
+formatter: goimports
+
+packages:
+  github.com/alexia-23/shortener/internal/handlers:
+    config:
+      dir: "{{.InterfaceDir}}"
+      filename: "mock_short_link_service_test.go"
+      pkgname: "handlers"
+      structname: "Mock{{.InterfaceName}}"
+    interfaces:
+      ShortLinkService:
+
+  github.com/alexia-23/shortener/internal/service:
+    config:
+      dir: "{{.InterfaceDir}}"
+      filename: "mock_short_link_repository_test.go"
+      pkgname: "service"
+      structname: "Mock{{.InterfaceName}}"
+    interfaces:
+      ShortLinkRepository:

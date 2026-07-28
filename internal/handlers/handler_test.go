@@ -11,11 +11,9 @@ import (
 )
 
 func TestNewRouter(t *testing.T) {
-	repository := &mockService{
-		sourceLinks: make(map[string]string),
-	}
+	service := NewMockShortLinkService(t)
 
-	router := NewRouter(repository, "http://localhost:8080")
+	router := NewRouter(service, "http://localhost:8080")
 
 	require.NotNil(t, router)
 }
@@ -26,23 +24,31 @@ func TestRouter_Routes(t *testing.T) {
 		method         string
 		path           string
 		body           string
-		links          map[string]string
+		setupMock      func(service *MockShortLinkService)
 		wantStatusCode int
 	}{
 		{
-			name:           "create short link route",
-			method:         http.MethodPost,
-			path:           "/",
-			body:           "https://example.com",
-			links:          make(map[string]string),
+			name:   "create short link route",
+			method: http.MethodPost,
+			path:   "/",
+			body:   "https://example.com",
+			setupMock: func(service *MockShortLinkService) {
+				service.EXPECT().
+					CreateShortLink("https://example.com").
+					Return("MQ", nil).
+					Once()
+			},
 			wantStatusCode: http.StatusCreated,
 		},
 		{
 			name:   "get source link route",
 			method: http.MethodGet,
 			path:   "/MQ",
-			links: map[string]string{
-				"MQ": "https://example.com",
+			setupMock: func(service *MockShortLinkService) {
+				service.EXPECT().
+					GetSourceLink("MQ").
+					Return("https://example.com", true).
+					Once()
 			},
 			wantStatusCode: http.StatusTemporaryRedirect,
 		},
@@ -50,19 +56,21 @@ func TestRouter_Routes(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			repository := &mockService{
-				createID:    "MQ",
-				sourceLinks: test.links,
-			}
+			service := NewMockShortLinkService(t)
 
-			router := NewRouter(repository, "http://localhost:8080")
+			test.setupMock(service)
+
+			router := NewRouter(service, "http://localhost:8080")
 
 			request := httptest.NewRequest(
 				test.method,
 				test.path,
 				strings.NewReader(test.body),
 			)
-			request.Header.Set("Content-Type", "text/plain")
+
+			if test.method == http.MethodPost {
+				request.Header.Set("Content-Type", "text/plain")
+			}
 
 			recorder := httptest.NewRecorder()
 
@@ -77,7 +85,7 @@ func TestRouter_Routes(t *testing.T) {
 	}
 }
 
-func TestNewHandler_PanicsOnNilRepository(t *testing.T) {
+func TestNewHandler_PanicsOnNilService(t *testing.T) {
 	require.PanicsWithValue(
 		t,
 		"handlers: nil service",
@@ -88,12 +96,6 @@ func TestNewHandler_PanicsOnNilRepository(t *testing.T) {
 }
 
 func TestRouter_InvalidRequest(t *testing.T) {
-	repository := &mockService{
-		sourceLinks: make(map[string]string),
-	}
-
-	router := NewRouter(repository, "http://localhost:8080")
-
 	tests := []struct {
 		name   string
 		method string
@@ -123,6 +125,10 @@ func TestRouter_InvalidRequest(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			service := NewMockShortLinkService(t)
+
+			router := NewRouter(service, "http://localhost:8080")
+
 			request := httptest.NewRequest(
 				test.method,
 				test.path,
