@@ -11,8 +11,8 @@ import (
 )
 
 func TestNewRouter(t *testing.T) {
-	repository := &mockRepository{
-		links: make(map[string]string),
+	repository := &mockService{
+		sourceLinks: make(map[string]string),
 	}
 
 	router := NewRouter(repository, "http://localhost:8080")
@@ -50,9 +50,9 @@ func TestRouter_Routes(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			repository := &mockRepository{
-				saveID: "MQ",
-				links:  test.links,
+			repository := &mockService{
+				createID:    "MQ",
+				sourceLinks: test.links,
 			}
 
 			router := NewRouter(repository, "http://localhost:8080")
@@ -80,7 +80,7 @@ func TestRouter_Routes(t *testing.T) {
 func TestNewHandler_PanicsOnNilRepository(t *testing.T) {
 	require.PanicsWithValue(
 		t,
-		"handlers: nil repository",
+		"handlers: nil service",
 		func() {
 			NewHandler(nil, "http://localhost:8080")
 		},
@@ -88,8 +88,8 @@ func TestNewHandler_PanicsOnNilRepository(t *testing.T) {
 }
 
 func TestRouter_InvalidRequest(t *testing.T) {
-	repository := &mockRepository{
-		links: make(map[string]string),
+	repository := &mockService{
+		sourceLinks: make(map[string]string),
 	}
 
 	router := NewRouter(repository, "http://localhost:8080")

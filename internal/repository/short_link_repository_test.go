@@ -10,11 +10,12 @@ import (
 func TestShortLinkRepository_SaveAndGet(t *testing.T) {
 	repository := NewShortLinkRepository()
 
+	id := "test-id"
 	originalURL := "https://example.com"
 
-	id := repository.Save(originalURL)
+	saved := repository.Save(id, originalURL)
 
-	require.NotEmpty(t, id)
+	require.True(t, saved)
 
 	savedURL, found := repository.Get(id)
 
@@ -31,43 +32,47 @@ func TestShortLinkRepository_GetUnknownID(t *testing.T) {
 	assert.Empty(t, originalURL)
 }
 
-func TestShortLinkRepository_SaveCreatesDifferentIDs(t *testing.T) {
+func TestShortLinkRepository_SaveDifferentIDs(t *testing.T) {
 	repository := NewShortLinkRepository()
 
-	firstID := repository.Save("https://example.com/first")
-	secondID := repository.Save("https://example.com/second")
+	firstSaved := repository.Save(
+		"first-id",
+		"https://example.com/first",
+	)
 
-	assert.NotEqual(t, firstID, secondID)
+	secondSaved := repository.Save(
+		"second-id",
+		"https://example.com/second",
+	)
+
+	assert.True(t, firstSaved)
+	assert.True(t, secondSaved)
 }
 
-func TestCreateID(t *testing.T) {
-	tests := []struct {
-		name    string
-		counter uint64
-		want    string
-	}{
-		{
-			name:    "counter one",
-			counter: 1,
-			want:    "MQ",
-		},
-		{
-			name:    "counter two",
-			counter: 2,
-			want:    "Mg",
-		},
-		{
-			name:    "counter ten",
-			counter: 10,
-			want:    "MTA",
-		},
-	}
+func TestShortLinkRepository_SaveCollision(t *testing.T) {
+	repository := NewShortLinkRepository()
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			result := createID(test.counter)
+	id := "same-id"
 
-			assert.Equal(t, test.want, result)
-		})
-	}
+	firstSaved := repository.Save(
+		id,
+		"https://example.com/first",
+	)
+
+	secondSaved := repository.Save(
+		id,
+		"https://example.com/second",
+	)
+
+	require.True(t, firstSaved)
+	require.False(t, secondSaved)
+
+	savedURL, found := repository.Get(id)
+
+	require.True(t, found)
+	assert.Equal(
+		t,
+		"https://example.com/first",
+		savedURL,
+	)
 }

@@ -48,7 +48,11 @@ func (handler *Handler) handleCreateShortLink(
 		return
 	}
 
-	id := handler.repository.Save(originalURL)
+	id, err := handler.service.CreateShortLink(originalURL)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
 	shortURL, err := url.JoinPath(handler.baseURL, id)
 	if err != nil {

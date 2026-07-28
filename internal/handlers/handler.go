@@ -1,17 +1,17 @@
 package handlers
 
 type Handler struct {
-	repository ShortLinkRepository
-	baseURL    string
+	service ShortLinkService
+	baseURL string
 }
 
-func NewHandler(repo ShortLinkRepository, baseURL string) *Handler {
-	if repo == nil {
-		panic("handlers: nil repository")
+func NewHandler(service ShortLinkService, baseURL string) *Handler {
+	if service == nil {
+		panic("handlers: nil service")
 	}
 
 	return &Handler{
-		repository: repo,
-		baseURL:    baseURL,
+		service: service,
+		baseURL: baseURL,
 	}
 }

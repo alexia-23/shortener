@@ -12,7 +12,7 @@ func (handler *Handler) handleGetSourceLink(
 ) {
 	id := chi.URLParam(r, "id")
 
-	originalURL, ok := handler.repository.Get(id)
+	originalURL, ok := handler.service.GetSourceLink(id)
 	if !ok {
 		writeBadRequest(w)
 		return

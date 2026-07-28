@@ -36,8 +36,8 @@ func TestHandler_handleGetSourceLink(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			repository := &mockRepository{
-				links: test.links,
+			repository := &mockService{
+				sourceLinks: test.links,
 			}
 
 			router := NewRouter(repository, "http://localhost:8080")
