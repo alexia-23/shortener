@@ -23,10 +23,14 @@ func (handler *Handler) handleCreateShortLink(
 		return
 	}
 
-	body, err := io.ReadAll(
-		io.LimitReader(r.Body, maxRequestBodySize+1),
+	r.Body = http.MaxBytesReader(
+		w,
+		r.Body,
+		maxRequestBodySize,
 	)
-	if err != nil || int64(len(body)) > maxRequestBodySize {
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
 		writeBadRequest(w)
 		return
 	}
@@ -44,8 +48,17 @@ func (handler *Handler) handleCreateShortLink(
 		return
 	}
 
-	id := handler.repository.Save(originalURL)
-	shortURL := "http://localhost:8080/" + id
+	id, err := handler.service.CreateShortLink(originalURL)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	shortURL, err := url.JoinPath(handler.baseURL, id)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusCreated)

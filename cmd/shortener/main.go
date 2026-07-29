@@ -4,15 +4,24 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/alexia-23/shortener/internal/config"
 	"github.com/alexia-23/shortener/internal/handlers"
 	"github.com/alexia-23/shortener/internal/repository"
+	"github.com/alexia-23/shortener/internal/service"
 )
 
 func main() {
-	shortLinkRepository := repository.NewShortLinkRepository()
-	router := handlers.NewRouter(shortLinkRepository)
+	cfg := config.NewConfig()
 
-	err := http.ListenAndServe(":8080", router)
+	shortLinkRepository := repository.NewShortLinkRepository()
+	shortLinkService := service.NewShortLinkService(shortLinkRepository)
+
+	router := handlers.NewRouter(
+		shortLinkService,
+		cfg.BaseURL,
+	)
+
+	err := http.ListenAndServe(cfg.ServerAddress, router)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -10,37 +10,41 @@ import (
 
 func TestHandler_handleGetSourceLink(t *testing.T) {
 	tests := []struct {
-		name           string
-		id             string
-		links          map[string]string
-		wantStatusCode int
-		wantLocation   string
+		name            string
+		id              string
+		wantOriginalURL string
+		wantFound       bool
+		wantStatusCode  int
+		wantLocation    string
 	}{
 		{
-			name: "link exists",
-			id:   "MQ",
-			links: map[string]string{
-				"MQ": "https://example.com",
-			},
-			wantStatusCode: http.StatusTemporaryRedirect,
-			wantLocation:   "https://example.com",
+			name:            "link exists",
+			id:              "MQ",
+			wantOriginalURL: "https://example.com",
+			wantFound:       true,
+			wantStatusCode:  http.StatusTemporaryRedirect,
+			wantLocation:    "https://example.com",
 		},
 		{
-			name:           "link does not exist",
-			id:             "unknown",
-			links:          make(map[string]string),
-			wantStatusCode: http.StatusBadRequest,
-			wantLocation:   "",
+			name:            "link does not exist",
+			id:              "unknown",
+			wantOriginalURL: "",
+			wantFound:       false,
+			wantStatusCode:  http.StatusBadRequest,
+			wantLocation:    "",
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			repository := &mockRepository{
-				links: test.links,
-			}
+			service := NewMockShortLinkService(t)
 
-			router := NewRouter(repository)
+			service.EXPECT().
+				GetSourceLink(test.id).
+				Return(test.wantOriginalURL, test.wantFound).
+				Once()
+
+			router := NewRouter(service, "http://localhost:8080")
 
 			request := httptest.NewRequest(
 				http.MethodGet,

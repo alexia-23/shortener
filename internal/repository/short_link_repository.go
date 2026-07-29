@@ -1,15 +1,15 @@
 package repository
 
 import (
-	"encoding/base64"
-	"strconv"
+	"fmt"
 	"sync"
+
+	"github.com/alexia-23/shortener/internal/service"
 )
 
 type ShortLinkRepository struct {
-	links   map[string]string
-	counter uint64
-	mutex   sync.RWMutex
+	links map[string]string
+	mutex sync.Mutex
 }
 
 func NewShortLinkRepository() *ShortLinkRepository {
@@ -18,29 +18,33 @@ func NewShortLinkRepository() *ShortLinkRepository {
 	}
 }
 
-func (repository *ShortLinkRepository) Save(originalURL string) string {
+func (repository *ShortLinkRepository) Save(
+	id string,
+	originalURL string,
+) error {
 	repository.mutex.Lock()
 	defer repository.mutex.Unlock()
 
-	repository.counter++
+	if _, exists := repository.links[id]; exists {
+		return fmt.Errorf(
+			"short link with ID %q: %w",
+			id,
+			service.ErrShortLinkIDExists,
+		)
+	}
 
-	id := createID(repository.counter)
 	repository.links[id] = originalURL
 
-	return id
+	return nil
 }
 
-func (repository *ShortLinkRepository) Get(id string) (string, bool) {
-	repository.mutex.RLock()
-	defer repository.mutex.RUnlock()
+func (repository *ShortLinkRepository) Get(
+	id string,
+) (string, bool) {
+	repository.mutex.Lock()
+	defer repository.mutex.Unlock()
 
 	originalURL, found := repository.links[id]
 
 	return originalURL, found
-}
-
-func createID(counter uint64) string {
-	number := strconv.FormatUint(counter, 10)
-
-	return base64.RawURLEncoding.EncodeToString([]byte(number))
 }

@@ -123,12 +123,16 @@ func TestHandler_handleCreateShortLink(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			repository := &mockRepository{
-				saveID: "MQ",
-				links:  make(map[string]string),
+			service := NewMockShortLinkService(t)
+
+			if test.wantSavedURL != "" {
+				service.EXPECT().
+					CreateShortLink(test.wantSavedURL).
+					Return("MQ", nil).
+					Once()
 			}
 
-			router := NewRouter(repository)
+			router := NewRouter(service, "http://localhost:8080")
 
 			request := httptest.NewRequest(
 				http.MethodPost,
@@ -166,12 +170,6 @@ func TestHandler_handleCreateShortLink(t *testing.T) {
 				t,
 				test.wantContentType,
 				response.Header.Get("Content-Type"),
-			)
-
-			assert.Equal(
-				t,
-				test.wantSavedURL,
-				repository.savedURL,
 			)
 		})
 	}
