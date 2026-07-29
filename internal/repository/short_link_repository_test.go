@@ -3,6 +3,7 @@ package repository
 import (
 	"testing"
 
+	"github.com/alexia-23/shortener/internal/service"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -13,9 +14,9 @@ func TestShortLinkRepository_SaveAndGet(t *testing.T) {
 	id := "test-id"
 	originalURL := "https://example.com"
 
-	saved := repository.Save(id, originalURL)
+	err := repository.Save(id, originalURL)
 
-	require.True(t, saved)
+	require.NoError(t, err)
 
 	savedURL, found := repository.Get(id)
 
@@ -35,18 +36,18 @@ func TestShortLinkRepository_GetUnknownID(t *testing.T) {
 func TestShortLinkRepository_SaveDifferentIDs(t *testing.T) {
 	repository := NewShortLinkRepository()
 
-	firstSaved := repository.Save(
+	firstErr := repository.Save(
 		"first-id",
 		"https://example.com/first",
 	)
 
-	secondSaved := repository.Save(
+	secondErr := repository.Save(
 		"second-id",
 		"https://example.com/second",
 	)
 
-	assert.True(t, firstSaved)
-	assert.True(t, secondSaved)
+	require.NoError(t, firstErr)
+	require.NoError(t, secondErr)
 }
 
 func TestShortLinkRepository_SaveCollision(t *testing.T) {
@@ -54,18 +55,22 @@ func TestShortLinkRepository_SaveCollision(t *testing.T) {
 
 	id := "same-id"
 
-	firstSaved := repository.Save(
+	firstErr := repository.Save(
 		id,
 		"https://example.com/first",
 	)
 
-	secondSaved := repository.Save(
+	secondErr := repository.Save(
 		id,
 		"https://example.com/second",
 	)
 
-	require.True(t, firstSaved)
-	require.False(t, secondSaved)
+	require.NoError(t, firstErr)
+	require.ErrorIs(
+		t,
+		secondErr,
+		service.ErrShortLinkIDExists,
+	)
 
 	savedURL, found := repository.Get(id)
 

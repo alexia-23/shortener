@@ -68,7 +68,7 @@ type MockShortLinkRepository_Get_Call struct {
 
 // Get is a helper method to define mock.On call
 //   - id string
-func (_e *MockShortLinkRepository_Expecter) Get(id any) *MockShortLinkRepository_Get_Call {
+func (_e *MockShortLinkRepository_Expecter) Get(id interface{}) *MockShortLinkRepository_Get_Call {
 	return &MockShortLinkRepository_Get_Call{Call: _e.mock.On("Get", id)}
 }
 
@@ -96,18 +96,18 @@ func (_c *MockShortLinkRepository_Get_Call) RunAndReturn(run func(id string) (st
 }
 
 // Save provides a mock function for the type MockShortLinkRepository
-func (_mock *MockShortLinkRepository) Save(id string, originalURL string) bool {
+func (_mock *MockShortLinkRepository) Save(id string, originalURL string) error {
 	ret := _mock.Called(id, originalURL)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Save")
 	}
 
-	var r0 bool
-	if returnFunc, ok := ret.Get(0).(func(string, string) bool); ok {
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(string, string) error); ok {
 		r0 = returnFunc(id, originalURL)
 	} else {
-		r0 = ret.Get(0).(bool)
+		r0 = ret.Error(0)
 	}
 	return r0
 }
@@ -120,7 +120,7 @@ type MockShortLinkRepository_Save_Call struct {
 // Save is a helper method to define mock.On call
 //   - id string
 //   - originalURL string
-func (_e *MockShortLinkRepository_Expecter) Save(id any, originalURL any) *MockShortLinkRepository_Save_Call {
+func (_e *MockShortLinkRepository_Expecter) Save(id interface{}, originalURL interface{}) *MockShortLinkRepository_Save_Call {
 	return &MockShortLinkRepository_Save_Call{Call: _e.mock.On("Save", id, originalURL)}
 }
 
@@ -142,12 +142,12 @@ func (_c *MockShortLinkRepository_Save_Call) Run(run func(id string, originalURL
 	return _c
 }
 
-func (_c *MockShortLinkRepository_Save_Call) Return(b bool) *MockShortLinkRepository_Save_Call {
-	_c.Call.Return(b)
+func (_c *MockShortLinkRepository_Save_Call) Return(err error) *MockShortLinkRepository_Save_Call {
+	_c.Call.Return(err)
 	return _c
 }
 
-func (_c *MockShortLinkRepository_Save_Call) RunAndReturn(run func(id string, originalURL string) bool) *MockShortLinkRepository_Save_Call {
+func (_c *MockShortLinkRepository_Save_Call) RunAndReturn(run func(id string, originalURL string) error) *MockShortLinkRepository_Save_Call {
 	_c.Call.Return(run)
 	return _c
 }

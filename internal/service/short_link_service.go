@@ -3,15 +3,19 @@ package service
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"fmt"
 )
 
 const maxGenerateAttempts = 10
 
-var ErrGenerateUniqueID = fmt.Errorf("failed to generate unique short link ID")
+var (
+	ErrGenerateUniqueID  = errors.New("failed to generate unique short link ID")
+	ErrShortLinkIDExists = errors.New("short link ID already exists")
+)
 
 type ShortLinkRepository interface {
-	Save(id string, originalURL string) bool
+	Save(id string, originalURL string) error
 	Get(id string) (string, bool)
 }
 
@@ -36,9 +40,14 @@ func (service *ShortLinkService) CreateShortLink(
 			return "", err
 		}
 
-		if service.repository.Save(id, originalURL) {
+		err = service.repository.Save(id, originalURL)
+		if err == nil {
 			return id, nil
 		}
+		if errors.Is(err, ErrShortLinkIDExists) {
+			continue
+		}
+		return "", fmt.Errorf("save short link: %w", err)
 	}
 
 	return "", ErrGenerateUniqueID

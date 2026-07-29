@@ -20,7 +20,7 @@ func TestShortLinkService_CreateShortLink(t *testing.T) {
 		Run(func(id string, originalURL string) {
 			savedID = id
 		}).
-		Return(true).
+		Return(nil).
 		Once()
 
 	service := NewShortLinkService(repository)
@@ -59,12 +59,12 @@ func TestShortLinkService_CreateShortLink_RetriesOnCollision(
 
 	repository.EXPECT().
 		Save(mock.Anything, originalURL).
-		Return(false).
+		Return(ErrShortLinkIDExists).
 		Once()
 
 	repository.EXPECT().
 		Save(mock.Anything, originalURL).
-		Return(true).
+		Return(nil).
 		Once()
 
 	service := NewShortLinkService(repository)
@@ -85,7 +85,7 @@ func TestShortLinkService_CreateShortLink_ReturnsErrorAfterMaxAttempts(
 
 	repository.EXPECT().
 		Save(mock.Anything, originalURL).
-		Return(false).
+		Return(ErrShortLinkIDExists).
 		Times(maxGenerateAttempts)
 
 	service := NewShortLinkService(repository)

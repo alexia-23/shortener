@@ -1,6 +1,11 @@
 package repository
 
-import "sync"
+import (
+	"fmt"
+	"sync"
+
+	"github.com/alexia-23/shortener/internal/service"
+)
 
 type ShortLinkRepository struct {
 	links map[string]string
@@ -16,17 +21,21 @@ func NewShortLinkRepository() *ShortLinkRepository {
 func (repository *ShortLinkRepository) Save(
 	id string,
 	originalURL string,
-) bool {
+) error {
 	repository.mutex.Lock()
 	defer repository.mutex.Unlock()
 
 	if _, exists := repository.links[id]; exists {
-		return false
+		return fmt.Errorf(
+			"short link with ID %q: %w",
+			id,
+			service.ErrShortLinkIDExists,
+		)
 	}
 
 	repository.links[id] = originalURL
 
-	return true
+	return nil
 }
 
 func (repository *ShortLinkRepository) Get(

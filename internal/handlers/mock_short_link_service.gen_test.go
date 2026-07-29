@@ -68,7 +68,7 @@ type MockShortLinkService_CreateShortLink_Call struct {
 
 // CreateShortLink is a helper method to define mock.On call
 //   - originalURL string
-func (_e *MockShortLinkService_Expecter) CreateShortLink(originalURL any) *MockShortLinkService_CreateShortLink_Call {
+func (_e *MockShortLinkService_Expecter) CreateShortLink(originalURL interface{}) *MockShortLinkService_CreateShortLink_Call {
 	return &MockShortLinkService_CreateShortLink_Call{Call: _e.mock.On("CreateShortLink", originalURL)}
 }
 
@@ -128,7 +128,7 @@ type MockShortLinkService_GetSourceLink_Call struct {
 
 // GetSourceLink is a helper method to define mock.On call
 //   - id string
-func (_e *MockShortLinkService_Expecter) GetSourceLink(id any) *MockShortLinkService_GetSourceLink_Call {
+func (_e *MockShortLinkService_Expecter) GetSourceLink(id interface{}) *MockShortLinkService_GetSourceLink_Call {
 	return &MockShortLinkService_GetSourceLink_Call{Call: _e.mock.On("GetSourceLink", id)}
 }
 
