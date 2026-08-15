@@ -1,6 +1,9 @@
 package config
 
-import "flag"
+import (
+	"flag"
+	"os"
+)
 
 type Config struct {
 	ServerAddress string
@@ -26,5 +29,11 @@ func NewConfig() *Config {
 
 	flag.Parse()
 
+	if serverAddress, ok := os.LookupEnv("SERVER_ADDRESS"); ok {
+		cfg.ServerAddress = serverAddress
+	}
+	if baseURL, ok := os.LookupEnv("BASE_URL"); ok {
+		cfg.BaseURL = baseURL
+	}
 	return cfg
 }
