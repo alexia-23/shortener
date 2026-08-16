@@ -12,6 +12,7 @@ func NewRouter(service ShortLinkService, baseURL string) *chi.Mux {
 	router := chi.NewRouter()
 
 	router.Post("/", handler.handleCreateShortLink)
+	router.Post("/api/shorten", handler.handleCreateShortLinkJSON)
 	router.Get("/{id}", handler.handleGetSourceLink)
 
 	router.NotFound(badRequestHandler)
