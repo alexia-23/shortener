@@ -30,8 +30,8 @@ func main() {
 		shortLinkService,
 		cfg.BaseURL,
 	)
-
-	loggedRouter := middleware.WithLogging(router, sugar)
+	gzipRouter := middleware.WithGzip(router)
+	loggedRouter := middleware.WithLogging(gzipRouter, sugar)
 
 	err = http.ListenAndServe(cfg.ServerAddress, loggedRouter)
 	if err != nil {
