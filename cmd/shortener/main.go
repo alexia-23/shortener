@@ -13,7 +13,6 @@ import (
 )
 
 func main() {
-
 	logger, err := zap.NewDevelopment()
 	if err != nil {
 		panic(err)
@@ -23,17 +22,27 @@ func main() {
 	sugar := logger.Sugar()
 	cfg := config.NewConfig()
 
-	shortLinkRepository := repository.NewShortLinkRepository()
+	shortLinkRepository, err := repository.NewShortLinkRepository(
+		cfg.FileStoragePath,
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	shortLinkService := service.NewShortLinkService(shortLinkRepository)
 
 	router := handlers.NewRouter(
 		shortLinkService,
 		cfg.BaseURL,
 	)
+
 	gzipRouter := middleware.WithGzip(router)
 	loggedRouter := middleware.WithLogging(gzipRouter, sugar)
 
-	err = http.ListenAndServe(cfg.ServerAddress, loggedRouter)
+	err = http.ListenAndServe(
+		cfg.ServerAddress,
+		loggedRouter,
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
