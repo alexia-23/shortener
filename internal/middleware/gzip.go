@@ -4,6 +4,8 @@ import (
 	"compress/gzip"
 	"net/http"
 	"strings"
+
+	"go.uber.org/zap"
 )
 
 type gzipResponseWriter struct {
@@ -49,34 +51,56 @@ func isCompressibleContentType(contentType string) bool {
 		strings.HasPrefix(contentType, "text/html")
 }
 
-func WithGzip(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Content-Encoding") == "gzip" {
-			gzipReader, err := gzip.NewReader(r.Body)
-			if err != nil {
-				w.WriteHeader(http.StatusBadRequest)
+func WithGzip(
+	sugar *zap.SugaredLogger,
+) func(http.Handler) http.Handler {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Header.Get("Content-Encoding") == "gzip" {
+				gzipReader, err := gzip.NewReader(r.Body)
+				if err != nil {
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
+
+				defer func() {
+					if err := gzipReader.Close(); err != nil {
+						sugar.Errorw(
+							"failed to close gzip request reader",
+							"error", err,
+						)
+					}
+				}()
+
+				r.Body = gzipReader
+			}
+
+			if strings.Contains(
+				r.Header.Get("Accept-Encoding"),
+				"gzip",
+			) {
+				gzipWriter := &gzipResponseWriter{
+					ResponseWriter: w,
+				}
+
+				defer func() {
+					if gzipWriter.gzipWriter == nil {
+						return
+					}
+
+					if err := gzipWriter.gzipWriter.Close(); err != nil {
+						sugar.Errorw(
+							"failed to close gzip response writer",
+							"error", err,
+						)
+					}
+				}()
+
+				h.ServeHTTP(gzipWriter, r)
 				return
 			}
 
-			defer gzipReader.Close()
-
-			r.Body = gzipReader
-		}
-
-		if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
-			gzipWriter := &gzipResponseWriter{
-				ResponseWriter: w,
-			}
-
-			h.ServeHTTP(gzipWriter, r)
-
-			if gzipWriter.gzipWriter != nil {
-				_ = gzipWriter.gzipWriter.Close()
-			}
-
-			return
-		}
-
-		h.ServeHTTP(w, r)
-	})
+			h.ServeHTTP(w, r)
+		})
+	}
 }

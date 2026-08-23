@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 )
 
 func TestWithGzip_DecompressRequest(t *testing.T) {
@@ -34,7 +35,8 @@ func TestWithGzip_DecompressRequest(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	gzipHandler := WithGzip(handler)
+	logger := zap.NewNop().Sugar()
+	gzipHandler := WithGzip(logger)(handler)
 
 	request := httptest.NewRequest(
 		http.MethodPost,
@@ -51,6 +53,7 @@ func TestWithGzip_DecompressRequest(t *testing.T) {
 	assert.Equal(t, http.StatusOK, recorder.Code)
 	assert.Equal(t, originalBody, receivedBody)
 }
+
 func TestWithGzip_UncompressedRequest(t *testing.T) {
 	originalBody := []byte(`{"url":"https://example.com"}`)
 
@@ -65,7 +68,8 @@ func TestWithGzip_UncompressedRequest(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	gzipHandler := WithGzip(handler)
+	logger := zap.NewNop().Sugar()
+	gzipHandler := WithGzip(logger)(handler)
 
 	request := httptest.NewRequest(
 		http.MethodPost,
@@ -80,6 +84,7 @@ func TestWithGzip_UncompressedRequest(t *testing.T) {
 	assert.Equal(t, http.StatusOK, recorder.Code)
 	assert.Equal(t, originalBody, receivedBody)
 }
+
 func TestWithGzip_InvalidCompressedRequest(t *testing.T) {
 	handlerCalled := false
 
@@ -88,7 +93,8 @@ func TestWithGzip_InvalidCompressedRequest(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	gzipHandler := WithGzip(handler)
+	logger := zap.NewNop().Sugar()
+	gzipHandler := WithGzip(logger)(handler)
 
 	request := httptest.NewRequest(
 		http.MethodPost,
@@ -105,6 +111,7 @@ func TestWithGzip_InvalidCompressedRequest(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, recorder.Code)
 	assert.False(t, handlerCalled)
 }
+
 func TestWithGzip_CompressJSONResponse(t *testing.T) {
 	originalBody := []byte(`{"result":"http://localhost:8080/MQ"}`)
 
@@ -116,7 +123,8 @@ func TestWithGzip_CompressJSONResponse(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	gzipHandler := WithGzip(handler)
+	logger := zap.NewNop().Sugar()
+	gzipHandler := WithGzip(logger)(handler)
 
 	request := httptest.NewRequest(
 		http.MethodGet,
@@ -163,7 +171,8 @@ func TestWithGzip_CompressHTMLResponse(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	gzipHandler := WithGzip(handler)
+	logger := zap.NewNop().Sugar()
+	gzipHandler := WithGzip(logger)(handler)
 
 	request := httptest.NewRequest(
 		http.MethodGet,
@@ -198,6 +207,7 @@ func TestWithGzip_CompressHTMLResponse(t *testing.T) {
 
 	assert.Equal(t, originalBody, body)
 }
+
 func TestWithGzip_DoesNotCompressTextPlain(t *testing.T) {
 	originalBody := []byte("hello")
 
@@ -209,7 +219,8 @@ func TestWithGzip_DoesNotCompressTextPlain(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	gzipHandler := WithGzip(handler)
+	logger := zap.NewNop().Sugar()
+	gzipHandler := WithGzip(logger)(handler)
 
 	request := httptest.NewRequest(
 		http.MethodGet,
@@ -224,18 +235,17 @@ func TestWithGzip_DoesNotCompressTextPlain(t *testing.T) {
 	gzipHandler.ServeHTTP(recorder, request)
 
 	assert.Equal(t, http.StatusOK, recorder.Code)
-
 	assert.Empty(
 		t,
 		recorder.Header().Get("Content-Encoding"),
 	)
-
 	assert.Equal(
 		t,
 		originalBody,
 		recorder.Body.Bytes(),
 	)
 }
+
 func TestWithGzip_DoesNotCompressWithoutAcceptEncoding(t *testing.T) {
 	originalBody := []byte(`{"result":"http://localhost:8080/MQ"}`)
 
@@ -247,7 +257,8 @@ func TestWithGzip_DoesNotCompressWithoutAcceptEncoding(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	gzipHandler := WithGzip(handler)
+	logger := zap.NewNop().Sugar()
+	gzipHandler := WithGzip(logger)(handler)
 
 	request := httptest.NewRequest(
 		http.MethodGet,
@@ -260,30 +271,33 @@ func TestWithGzip_DoesNotCompressWithoutAcceptEncoding(t *testing.T) {
 	gzipHandler.ServeHTTP(recorder, request)
 
 	assert.Equal(t, http.StatusCreated, recorder.Code)
-
 	assert.Empty(
 		t,
 		recorder.Header().Get("Content-Encoding"),
 	)
-
 	assert.Equal(
 		t,
 		originalBody,
 		recorder.Body.Bytes(),
 	)
 }
+
 func TestWithGzip_CompressJSONResponseWithCharset(t *testing.T) {
 	originalBody := []byte(`{"result":"ok"}`)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.Header().Set(
+			"Content-Type",
+			"application/json; charset=utf-8",
+		)
 		w.WriteHeader(http.StatusOK)
 
 		_, err := w.Write(originalBody)
 		assert.NoError(t, err)
 	})
 
-	gzipHandler := WithGzip(handler)
+	logger := zap.NewNop().Sugar()
+	gzipHandler := WithGzip(logger)(handler)
 
 	request := httptest.NewRequest(
 		http.MethodGet,

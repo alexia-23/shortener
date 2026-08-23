@@ -2,19 +2,19 @@ package repository
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"sync"
-
-	"github.com/alexia-23/shortener/internal/service"
 )
 
-type ShortLinkRepository struct {
-	links           map[string]string
-	records         []storedURL
-	mutex           sync.Mutex
+type FileRepository struct {
+	memory          *MemoryRepository
 	fileStoragePath string
+	nextUUID        int
+	mutex           sync.RWMutex
 }
 
 type storedURL struct {
@@ -23,13 +23,13 @@ type storedURL struct {
 	OriginalURL string `json:"original_url"`
 }
 
-func NewShortLinkRepository(
+func NewFileRepository(
 	fileStoragePath string,
-) (*ShortLinkRepository, error) {
-	repository := &ShortLinkRepository{
-		links:           make(map[string]string),
-		records:         make([]storedURL, 0),
+) (*FileRepository, error) {
+	repository := &FileRepository{
+		memory:          NewMemoryRepository(),
 		fileStoragePath: fileStoragePath,
+		nextUUID:        1,
 	}
 
 	if err := repository.loadFromFile(); err != nil {
@@ -39,96 +39,125 @@ func NewShortLinkRepository(
 	return repository, nil
 }
 
-func (repository *ShortLinkRepository) Save(
+func NewShortLinkRepository(
+	fileStoragePath string,
+) (*FileRepository, error) {
+	return NewFileRepository(fileStoragePath)
+}
+
+func (repository *FileRepository) Save(
 	id string,
 	originalURL string,
 ) error {
 	repository.mutex.Lock()
 	defer repository.mutex.Unlock()
 
-	if _, exists := repository.links[id]; exists {
-		return fmt.Errorf(
-			"short link with ID %q: %w",
-			id,
-			service.ErrShortLinkIDExists,
-		)
+	if err := repository.memory.Save(id, originalURL); err != nil {
+		return err
 	}
 
 	record := storedURL{
-		UUID:        strconv.Itoa(len(repository.records) + 1),
+		UUID:        strconv.Itoa(repository.nextUUID),
 		ShortURL:    id,
 		OriginalURL: originalURL,
 	}
 
-	repository.links[id] = originalURL
-	repository.records = append(repository.records, record)
-
-	if err := repository.saveToFile(); err != nil {
-		delete(repository.links, id)
-		repository.records = repository.records[:len(repository.records)-1]
-
+	if err := repository.appendToFile(record); err != nil {
+		repository.memory.delete(id)
 		return err
 	}
 
+	repository.nextUUID++
+
 	return nil
 }
 
-func (repository *ShortLinkRepository) Get(
+func (repository *FileRepository) Get(
 	id string,
 ) (string, bool) {
-	repository.mutex.Lock()
-	defer repository.mutex.Unlock()
+	repository.mutex.RLock()
+	defer repository.mutex.RUnlock()
 
-	originalURL, found := repository.links[id]
-
-	return originalURL, found
+	return repository.memory.Get(id)
 }
 
-func (repository *ShortLinkRepository) saveToFile() error {
-	data, err := json.MarshalIndent(
-		repository.records,
-		"",
-		"  ",
+func (repository *FileRepository) appendToFile(
+	record storedURL,
+) (err error) {
+	file, err := os.OpenFile(
+		repository.fileStoragePath,
+		os.O_WRONLY|os.O_CREATE|os.O_APPEND,
+		0o666,
 	)
 	if err != nil {
-		return fmt.Errorf("marshal stored URLs: %w", err)
+		return fmt.Errorf("open storage file: %w", err)
 	}
 
-	if err := os.WriteFile(
-		repository.fileStoragePath,
-		data,
-		0666,
-	); err != nil {
-		return fmt.Errorf("write storage file: %w", err)
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close storage file: %w", closeErr)
+		}
+	}()
+
+	if err := json.NewEncoder(file).Encode(record); err != nil {
+		return fmt.Errorf("encode stored URL: %w", err)
+	}
+
+	if err := file.Sync(); err != nil {
+		return fmt.Errorf("sync storage file: %w", err)
 	}
 
 	return nil
 }
 
-func (repository *ShortLinkRepository) loadFromFile() error {
-	data, err := os.ReadFile(repository.fileStoragePath)
+func (repository *FileRepository) loadFromFile() (err error) {
+	file, err := os.Open(repository.fileStoragePath)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			return nil
 		}
 
-		return fmt.Errorf("read storage file: %w", err)
+		return fmt.Errorf("open storage file: %w", err)
 	}
 
-	if len(data) == 0 {
-		return nil
-	}
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close storage file: %w", closeErr)
+		}
+	}()
 
-	var urls []storedURL
+	decoder := json.NewDecoder(file)
 
-	if err := json.Unmarshal(data, &urls); err != nil {
-		return fmt.Errorf("unmarshal stored URLs: %w", err)
-	}
+	for {
+		var record storedURL
 
-	repository.records = urls
+		decodeErr := decoder.Decode(&record)
+		if errors.Is(decodeErr, io.EOF) {
+			break
+		}
+		if decodeErr != nil {
+			return fmt.Errorf("decode stored URL: %w", decodeErr)
+		}
 
-	for _, storedURL := range urls {
-		repository.links[storedURL.ShortURL] = storedURL.OriginalURL
+		uuid, conversionErr := strconv.Atoi(record.UUID)
+		if conversionErr != nil || uuid < 1 {
+			return fmt.Errorf("invalid UUID %q", record.UUID)
+		}
+
+		if err := repository.memory.Save(
+			record.ShortURL,
+			record.OriginalURL,
+		); err != nil {
+			return fmt.Errorf(
+				"load short link %q: %w",
+				record.ShortURL,
+				err,
+			)
+		}
+
+		if uuid >= repository.nextUUID {
+			repository.nextUUID = uuid + 1
+		}
 	}
 
 	return nil
