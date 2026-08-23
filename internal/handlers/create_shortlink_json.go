@@ -19,12 +19,19 @@ func (handler *Handler) handleCreateShortLinkJSON(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
+	r.Body = http.MaxBytesReader(
+		w,
+		r.Body,
+		maxRequestBodySize,
+	)
+
 	var request createShortLinkRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		writeBadRequest(w)
 		return
 	}
+
 	originalURL := strings.TrimSpace(request.URL)
 
 	if originalURL == "" {

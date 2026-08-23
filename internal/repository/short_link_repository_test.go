@@ -1,6 +1,10 @@
 package repository
 
 import (
+	"bufio"
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/alexia-23/shortener/internal/service"
@@ -9,13 +13,18 @@ import (
 )
 
 func TestShortLinkRepository_SaveAndGet(t *testing.T) {
-	repository := NewShortLinkRepository()
+	fileStoragePath := filepath.Join(
+		t.TempDir(),
+		"storage.json",
+	)
+
+	repository, err := NewShortLinkRepository(fileStoragePath)
+	require.NoError(t, err)
 
 	id := "test-id"
 	originalURL := "https://example.com"
 
-	err := repository.Save(id, originalURL)
-
+	err = repository.Save(id, originalURL)
 	require.NoError(t, err)
 
 	savedURL, found := repository.Get(id)
@@ -25,7 +34,13 @@ func TestShortLinkRepository_SaveAndGet(t *testing.T) {
 }
 
 func TestShortLinkRepository_GetUnknownID(t *testing.T) {
-	repository := NewShortLinkRepository()
+	fileStoragePath := filepath.Join(
+		t.TempDir(),
+		"storage.json",
+	)
+
+	repository, err := NewShortLinkRepository(fileStoragePath)
+	require.NoError(t, err)
 
 	originalURL, found := repository.Get("unknown")
 
@@ -34,7 +49,13 @@ func TestShortLinkRepository_GetUnknownID(t *testing.T) {
 }
 
 func TestShortLinkRepository_SaveDifferentIDs(t *testing.T) {
-	repository := NewShortLinkRepository()
+	fileStoragePath := filepath.Join(
+		t.TempDir(),
+		"storage.json",
+	)
+
+	repository, err := NewShortLinkRepository(fileStoragePath)
+	require.NoError(t, err)
 
 	firstErr := repository.Save(
 		"first-id",
@@ -51,7 +72,13 @@ func TestShortLinkRepository_SaveDifferentIDs(t *testing.T) {
 }
 
 func TestShortLinkRepository_SaveCollision(t *testing.T) {
-	repository := NewShortLinkRepository()
+	fileStoragePath := filepath.Join(
+		t.TempDir(),
+		"storage.json",
+	)
+
+	repository, err := NewShortLinkRepository(fileStoragePath)
+	require.NoError(t, err)
 
 	id := "same-id"
 
@@ -80,4 +107,171 @@ func TestShortLinkRepository_SaveCollision(t *testing.T) {
 		"https://example.com/first",
 		savedURL,
 	)
+}
+
+func TestShortLinkRepository_SaveToFile(t *testing.T) {
+	fileStoragePath := filepath.Join(
+		t.TempDir(),
+		"storage.json",
+	)
+
+	repository, err := NewShortLinkRepository(fileStoragePath)
+	require.NoError(t, err)
+
+	id := "test-id"
+	originalURL := "https://example.com"
+
+	err = repository.Save(id, originalURL)
+	require.NoError(t, err)
+
+	file, err := os.Open(fileStoragePath)
+	require.NoError(t, err)
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+
+	require.True(t, scanner.Scan())
+	require.NoError(t, scanner.Err())
+
+	var savedURL storedURL
+
+	err = json.Unmarshal(scanner.Bytes(), &savedURL)
+	require.NoError(t, err)
+
+	assert.Equal(t, "1", savedURL.UUID)
+	assert.Equal(t, id, savedURL.ShortURL)
+	assert.Equal(t, originalURL, savedURL.OriginalURL)
+
+	assert.False(t, scanner.Scan())
+	require.NoError(t, scanner.Err())
+}
+
+func TestShortLinkRepository_AppendToFile(t *testing.T) {
+	fileStoragePath := filepath.Join(
+		t.TempDir(),
+		"storage.json",
+	)
+
+	repository, err := NewShortLinkRepository(fileStoragePath)
+	require.NoError(t, err)
+
+	err = repository.Save(
+		"first-id",
+		"https://example.com/first",
+	)
+	require.NoError(t, err)
+
+	err = repository.Save(
+		"second-id",
+		"https://example.com/second",
+	)
+	require.NoError(t, err)
+
+	file, err := os.Open(fileStoragePath)
+	require.NoError(t, err)
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+
+	var records []storedURL
+
+	for scanner.Scan() {
+		var record storedURL
+
+		err = json.Unmarshal(scanner.Bytes(), &record)
+		require.NoError(t, err)
+
+		records = append(records, record)
+	}
+
+	require.NoError(t, scanner.Err())
+	require.Len(t, records, 2)
+
+	assert.Equal(t, "1", records[0].UUID)
+	assert.Equal(t, "first-id", records[0].ShortURL)
+	assert.Equal(
+		t,
+		"https://example.com/first",
+		records[0].OriginalURL,
+	)
+
+	assert.Equal(t, "2", records[1].UUID)
+	assert.Equal(t, "second-id", records[1].ShortURL)
+	assert.Equal(
+		t,
+		"https://example.com/second",
+		records[1].OriginalURL,
+	)
+}
+
+func TestShortLinkRepository_LoadFromFile(t *testing.T) {
+	fileStoragePath := filepath.Join(
+		t.TempDir(),
+		"storage.json",
+	)
+
+	firstRepository, err := NewShortLinkRepository(fileStoragePath)
+	require.NoError(t, err)
+
+	id := "test-id"
+	originalURL := "https://example.com"
+
+	err = firstRepository.Save(id, originalURL)
+	require.NoError(t, err)
+
+	secondRepository, err := NewShortLinkRepository(fileStoragePath)
+	require.NoError(t, err)
+
+	savedURL, found := secondRepository.Get(id)
+
+	require.True(t, found)
+	assert.Equal(t, originalURL, savedURL)
+}
+
+func TestShortLinkRepository_ContinuesUUIDAfterReload(t *testing.T) {
+	fileStoragePath := filepath.Join(
+		t.TempDir(),
+		"storage.json",
+	)
+
+	firstRepository, err := NewShortLinkRepository(fileStoragePath)
+	require.NoError(t, err)
+
+	err = firstRepository.Save(
+		"first-id",
+		"https://example.com/first",
+	)
+	require.NoError(t, err)
+
+	secondRepository, err := NewShortLinkRepository(fileStoragePath)
+	require.NoError(t, err)
+
+	err = secondRepository.Save(
+		"second-id",
+		"https://example.com/second",
+	)
+	require.NoError(t, err)
+
+	file, err := os.Open(fileStoragePath)
+	require.NoError(t, err)
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+
+	var records []storedURL
+
+	for scanner.Scan() {
+		var record storedURL
+
+		err = json.Unmarshal(scanner.Bytes(), &record)
+		require.NoError(t, err)
+
+		records = append(records, record)
+	}
+
+	require.NoError(t, scanner.Err())
+	require.Len(t, records, 2)
+
+	assert.Equal(t, "1", records[0].UUID)
+	assert.Equal(t, "2", records[1].UUID)
 }

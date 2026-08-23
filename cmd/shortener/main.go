@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"net/http"
 
 	"github.com/alexia-23/shortener/internal/config"
@@ -13,28 +12,59 @@ import (
 )
 
 func main() {
-
 	logger, err := zap.NewDevelopment()
 	if err != nil {
-		panic(err)
+		fallbackLogger := zap.NewExample()
+		fallbackLogger.Fatal(
+			"failed to initialize logger",
+			zap.Error(err),
+		)
+		return
 	}
-	defer logger.Sync()
+	defer func() {
+		_ = logger.Sync()
+	}()
 
 	sugar := logger.Sugar()
 	cfg := config.NewConfig()
 
-	shortLinkRepository := repository.NewShortLinkRepository()
+	var shortLinkRepository service.ShortLinkRepository
+
+	if cfg.FileStoragePath == "" {
+		shortLinkRepository = repository.NewMemoryRepository()
+	} else {
+		fileRepository, err := repository.NewFileRepository(
+			cfg.FileStoragePath,
+		)
+		if err != nil {
+			sugar.Fatalw(
+				"failed to initialize file repository",
+				"error", err,
+			)
+			return
+		}
+
+		shortLinkRepository = fileRepository
+	}
+
 	shortLinkService := service.NewShortLinkService(shortLinkRepository)
 
 	router := handlers.NewRouter(
 		shortLinkService,
 		cfg.BaseURL,
+		middleware.WithLogging(sugar),
+		middleware.WithGzip(sugar),
 	)
-	gzipRouter := middleware.WithGzip(router)
-	loggedRouter := middleware.WithLogging(gzipRouter, sugar)
 
-	err = http.ListenAndServe(cfg.ServerAddress, loggedRouter)
-	if err != nil {
-		log.Fatal(err)
+	sugar.Infow(
+		"starting server",
+		"address", cfg.ServerAddress,
+	)
+
+	if err := http.ListenAndServe(cfg.ServerAddress, router); err != nil {
+		sugar.Fatalw(
+			"server stopped",
+			"error", err,
+		)
 	}
 }

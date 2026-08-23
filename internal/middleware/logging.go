@@ -25,31 +25,34 @@ func (r *loggingResponseWriter) WriteHeader(statusCode int) {
 func (r *loggingResponseWriter) Write(b []byte) (int, error) {
 	size, err := r.ResponseWriter.Write(b)
 	r.responseData.size += size
+
 	return size, err
 }
 
 func WithLogging(
-	h http.Handler,
 	sugar *zap.SugaredLogger,
-) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
+) func(http.Handler) http.Handler {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			start := time.Now()
 
-		lrw := &loggingResponseWriter{
-			ResponseWriter: w,
-			responseData: &responseData{
-				status: http.StatusOK,
-			},
-		}
-		h.ServeHTTP(lrw, r)
+			lrw := &loggingResponseWriter{
+				ResponseWriter: w,
+				responseData: &responseData{
+					status: http.StatusOK,
+				},
+			}
 
-		sugar.Infow(
-			"request",
-			"uri", r.RequestURI,
-			"method", r.Method,
-			"duration", time.Since(start),
-			"status", lrw.responseData.status,
-			"size", lrw.responseData.size,
-		)
-	})
+			h.ServeHTTP(lrw, r)
+
+			sugar.Infow(
+				"request",
+				"uri", r.RequestURI,
+				"method", r.Method,
+				"duration", time.Since(start),
+				"status", lrw.responseData.status,
+				"size", lrw.responseData.size,
+			)
+		})
+	}
 }
