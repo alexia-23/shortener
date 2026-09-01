@@ -9,6 +9,7 @@ type Config struct {
 	ServerAddress   string
 	BaseURL         string
 	FileStoragePath string
+	DatabaseDSN     string
 }
 
 func NewConfig() *Config {
@@ -35,6 +36,13 @@ func NewConfig() *Config {
 		"path to file storage",
 	)
 
+	flag.StringVar(
+		&cfg.DatabaseDSN,
+		"d",
+		"",
+		"database connection string",
+	)
+
 	flag.Parse()
 
 	if serverAddress, ok := os.LookupEnv("SERVER_ADDRESS"); ok {
@@ -47,6 +55,10 @@ func NewConfig() *Config {
 
 	if fileStoragePath, ok := os.LookupEnv("FILE_STORAGE_PATH"); ok {
 		cfg.FileStoragePath = fileStoragePath
+	}
+
+	if databaseDSN, ok := os.LookupEnv("DATABASE_DSN"); ok {
+		cfg.DatabaseDSN = databaseDSN
 	}
 
 	return cfg

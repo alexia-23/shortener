@@ -1,14 +1,17 @@
 package main
 
 import (
+	"database/sql"
 	"net/http"
+
+	_ "github.com/jackc/pgx/v5/stdlib"
+	"go.uber.org/zap"
 
 	"github.com/alexia-23/shortener/internal/config"
 	"github.com/alexia-23/shortener/internal/handlers"
 	"github.com/alexia-23/shortener/internal/middleware"
 	"github.com/alexia-23/shortener/internal/repository"
 	"github.com/alexia-23/shortener/internal/service"
-	"go.uber.org/zap"
 )
 
 func main() {
@@ -27,6 +30,24 @@ func main() {
 
 	sugar := logger.Sugar()
 	cfg := config.NewConfig()
+
+	db, err := sql.Open("pgx", cfg.DatabaseDSN)
+	if err != nil {
+		sugar.Fatalw(
+			"failed to initialize database",
+			"error", err,
+		)
+		return
+	}
+
+	defer func() {
+		if err := db.Close(); err != nil {
+			sugar.Errorw(
+				"failed to close database",
+				"error", err,
+			)
+		}
+	}()
 
 	var shortLinkRepository service.ShortLinkRepository
 
@@ -54,6 +75,11 @@ func main() {
 		cfg.BaseURL,
 		middleware.WithLogging(sugar),
 		middleware.WithGzip(sugar),
+	)
+
+	router.Get(
+		"/ping",
+		handlers.NewPingHandler(db),
 	)
 
 	sugar.Infow(
