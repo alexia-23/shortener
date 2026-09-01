@@ -63,9 +63,10 @@ func main() {
 	}
 
 	var shortLinkRepository service.ShortLinkRepository
+	persistenceService := database.NewPersistenceService(db)
 
 	if cfg.DatabaseDSN != "" {
-		shortLinkRepository = database.NewPersistenceService(db)
+		shortLinkRepository = persistenceService
 	} else if cfg.FileStoragePath != "" {
 		fileRepository, err := repository.NewFileRepository(
 			cfg.FileStoragePath,
@@ -94,7 +95,7 @@ func main() {
 
 	router.Get(
 		"/ping",
-		handlers.NewPingHandler(db),
+		handlers.NewPingHandler(persistenceService),
 	)
 
 	sugar.Infow(

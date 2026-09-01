@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
-	"strings"
 )
 
 type createShortLinkRequest struct {
@@ -32,15 +31,8 @@ func (handler *Handler) handleCreateShortLinkJSON(
 		return
 	}
 
-	originalURL := strings.TrimSpace(request.URL)
-
-	if originalURL == "" {
-		writeBadRequest(w)
-		return
-	}
-
-	parsedURL, err := url.ParseRequestURI(originalURL)
-	if err != nil || parsedURL.Scheme == "" || parsedURL.Host == "" {
+	originalURL, valid := validateOriginalURL(request.URL)
+	if !valid {
 		writeBadRequest(w)
 		return
 	}

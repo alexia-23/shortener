@@ -171,3 +171,60 @@ func (_c *MockShortLinkRepository_Save_Call) RunAndReturn(run func(ctx context.C
 	_c.Call.Return(run)
 	return _c
 }
+
+// SaveBatch provides a mock function for the type MockShortLinkRepository
+func (_mock *MockShortLinkRepository) SaveBatch(ctx context.Context, links []ShortLink) error {
+	ret := _mock.Called(ctx, links)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SaveBatch")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []ShortLink) error); ok {
+		r0 = returnFunc(ctx, links)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockShortLinkRepository_SaveBatch_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SaveBatch'
+type MockShortLinkRepository_SaveBatch_Call struct {
+	*mock.Call
+}
+
+// SaveBatch is a helper method to define mock.On call
+//   - ctx context.Context
+//   - links []ShortLink
+func (_e *MockShortLinkRepository_Expecter) SaveBatch(ctx any, links any) *MockShortLinkRepository_SaveBatch_Call {
+	return &MockShortLinkRepository_SaveBatch_Call{Call: _e.mock.On("SaveBatch", ctx, links)}
+}
+
+func (_c *MockShortLinkRepository_SaveBatch_Call) Run(run func(ctx context.Context, links []ShortLink)) *MockShortLinkRepository_SaveBatch_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 []ShortLink
+		if args[1] != nil {
+			arg1 = args[1].([]ShortLink)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockShortLinkRepository_SaveBatch_Call) Return(err error) *MockShortLinkRepository_SaveBatch_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockShortLinkRepository_SaveBatch_Call) RunAndReturn(run func(ctx context.Context, links []ShortLink) error) *MockShortLinkRepository_SaveBatch_Call {
+	_c.Call.Return(run)
+	return _c
+}

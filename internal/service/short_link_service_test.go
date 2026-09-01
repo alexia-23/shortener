@@ -141,3 +141,88 @@ func TestShortLinkService_CreateShortLink_ReturnsErrorAfterMaxAttempts(
 	require.ErrorIs(t, err, ErrGenerateUniqueID)
 	assert.Empty(t, id)
 }
+
+func TestShortLinkService_CreateShortLinksBatch(t *testing.T) {
+	repository := NewMockShortLinkRepository(t)
+
+	originalURLs := []string{
+		"https://example.com/first",
+		"https://example.com/second",
+	}
+
+	var savedLinks []ShortLink
+
+	repository.EXPECT().
+		SaveBatch(
+			mock.Anything,
+			mock.Anything,
+		).
+		Run(func(_ context.Context, links []ShortLink) {
+			savedLinks = append(savedLinks, links...)
+		}).
+		Return(nil).
+		Once()
+
+	shortLinkService := NewShortLinkService(repository)
+
+	ids, err := shortLinkService.CreateShortLinksBatch(
+		context.Background(),
+		originalURLs,
+	)
+
+	require.NoError(t, err)
+	require.Len(t, ids, len(originalURLs))
+	require.Len(t, savedLinks, len(originalURLs))
+
+	for index := range originalURLs {
+		assert.Len(t, ids[index], 8)
+		assert.Equal(t, ids[index], savedLinks[index].ID)
+		assert.Equal(
+			t,
+			originalURLs[index],
+			savedLinks[index].OriginalURL,
+		)
+	}
+
+	assert.NotEqual(t, ids[0], ids[1])
+}
+
+func TestShortLinkService_CreateShortLinksBatch_RetriesCollision(
+	t *testing.T,
+) {
+	repository := NewMockShortLinkRepository(t)
+
+	repository.EXPECT().
+		SaveBatch(mock.Anything, mock.Anything).
+		Return(ErrShortLinkIDExists).
+		Once()
+
+	repository.EXPECT().
+		SaveBatch(mock.Anything, mock.Anything).
+		Return(nil).
+		Once()
+
+	shortLinkService := NewShortLinkService(repository)
+
+	ids, err := shortLinkService.CreateShortLinksBatch(
+		context.Background(),
+		[]string{"https://example.com"},
+	)
+
+	require.NoError(t, err)
+	require.Len(t, ids, 1)
+	assert.Len(t, ids[0], 8)
+}
+
+func TestShortLinkService_CreateShortLinksBatch_Empty(t *testing.T) {
+	repository := NewMockShortLinkRepository(t)
+	shortLinkService := NewShortLinkService(repository)
+
+	ids, err := shortLinkService.CreateShortLinksBatch(
+		context.Background(),
+		nil,
+	)
+
+	require.NoError(t, err)
+	assert.Empty(t, ids)
+}

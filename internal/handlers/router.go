@@ -18,6 +18,10 @@ func NewRouter(
 
 	router.Post("/", handler.handleCreateShortLink)
 	router.Post("/api/shorten", handler.handleCreateShortLinkJSON)
+	router.Post(
+		"/api/shorten/batch",
+		handler.handleCreateShortLinksBatch,
+	)
 	router.Get("/{id}", handler.handleGetSourceLink)
 
 	router.NotFound(badRequestHandler)

@@ -69,6 +69,85 @@ func (persistence *PersistenceService) Save(
 	return nil
 }
 
+func (persistence *PersistenceService) SaveBatch(
+	ctx context.Context,
+	links []service.ShortLink,
+) error {
+	if len(links) == 0 {
+		return nil
+	}
+
+	tx, err := persistence.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf(
+			"begin batch transaction: %w",
+			err,
+		)
+	}
+
+	defer func() {
+		_ = tx.Rollback()
+	}()
+
+	stmt, err := tx.PrepareContext(
+		ctx,
+		`
+			INSERT INTO short_urls (
+				short_url,
+				original_url
+			)
+			VALUES ($1, $2)
+			ON CONFLICT (short_url) DO NOTHING
+		`,
+	)
+	if err != nil {
+		return fmt.Errorf(
+			"prepare batch insert: %w",
+			err,
+		)
+	}
+	defer stmt.Close()
+
+	for _, link := range links {
+		result, err := stmt.ExecContext(
+			ctx,
+			link.ID,
+			link.OriginalURL,
+		)
+		if err != nil {
+			return fmt.Errorf(
+				"insert batch item: %w",
+				err,
+			)
+		}
+
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			return fmt.Errorf(
+				"get affected rows: %w",
+				err,
+			)
+		}
+
+		if rowsAffected == 0 {
+			return fmt.Errorf(
+				"short link with ID %q: %w",
+				link.ID,
+				service.ErrShortLinkIDExists,
+			)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf(
+			"commit batch transaction: %w",
+			err,
+		)
+	}
+
+	return nil
+}
+
 func (persistence *PersistenceService) Get(
 	ctx context.Context,
 	id string,
