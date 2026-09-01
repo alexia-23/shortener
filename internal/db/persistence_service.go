@@ -7,6 +7,8 @@ import (
 	"fmt"
 
 	"github.com/alexia-23/shortener/internal/service"
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type PersistenceService struct {
@@ -30,7 +32,7 @@ func (persistence *PersistenceService) Save(
 	id string,
 	originalURL string,
 ) error {
-	result, err := persistence.db.ExecContext(
+	_, err := persistence.db.ExecContext(
 		ctx,
 		`
 			INSERT INTO short_urls (
@@ -38,35 +40,72 @@ func (persistence *PersistenceService) Save(
 				original_url
 			)
 			VALUES ($1, $2)
-			ON CONFLICT (short_url) DO NOTHING
 		`,
 		id,
 		originalURL,
 	)
-	if err != nil {
+	if err == nil {
+		return nil
+	}
+
+	if !isUniqueViolation(err) {
 		return fmt.Errorf(
 			"insert short link: %w",
 			err,
 		)
 	}
 
-	rowsAffected, err := result.RowsAffected()
+	existingID, findErr := persistence.findIDByOriginalURL(
+		ctx,
+		originalURL,
+	)
+	if findErr == nil {
+		return &service.OriginalURLExistsError{
+			ID: existingID,
+		}
+	}
+
+	if !errors.Is(findErr, sql.ErrNoRows) {
+		return fmt.Errorf(
+			"find existing short link after insert conflict: %w",
+			findErr,
+		)
+	}
+
+	return fmt.Errorf(
+		"short link with ID %q: %w",
+		id,
+		service.ErrShortLinkIDExists,
+	)
+}
+
+func (persistence *PersistenceService) findIDByOriginalURL(
+	ctx context.Context,
+	originalURL string,
+) (string, error) {
+	var id string
+
+	err := persistence.db.QueryRowContext(
+		ctx,
+		`
+			SELECT short_url
+			FROM short_urls
+			WHERE original_url = $1
+		`,
+		originalURL,
+	).Scan(&id)
 	if err != nil {
-		return fmt.Errorf(
-			"get affected rows: %w",
-			err,
-		)
+		return "", err
 	}
 
-	if rowsAffected == 0 {
-		return fmt.Errorf(
-			"short link with ID %q: %w",
-			id,
-			service.ErrShortLinkIDExists,
-		)
-	}
+	return id, nil
+}
 
-	return nil
+func isUniqueViolation(err error) bool {
+	var postgresError *pgconn.PgError
+
+	return errors.As(err, &postgresError) &&
+		postgresError.Code == pgerrcode.UniqueViolation
 }
 
 func (persistence *PersistenceService) SaveBatch(

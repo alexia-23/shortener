@@ -1,10 +1,13 @@
 package handlers
 
 import (
+	"errors"
 	"io"
 	"mime"
 	"net/http"
 	"net/url"
+
+	"github.com/alexia-23/shortener/internal/service"
 )
 
 const maxRequestBodySize int64 = 1 << 20
@@ -43,9 +46,18 @@ func (handler *Handler) handleCreateShortLink(
 		r.Context(),
 		originalURL,
 	)
+	statusCode := http.StatusCreated
+
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		var originalURLExistsError *service.OriginalURLExistsError
+
+		if !errors.As(err, &originalURLExistsError) {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		id = originalURLExistsError.ID
+		statusCode = http.StatusConflict
 	}
 
 	shortURL, err := url.JoinPath(handler.baseURL, id)
@@ -55,7 +67,7 @@ func (handler *Handler) handleCreateShortLink(
 	}
 
 	w.Header().Set("Content-Type", "text/plain")
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(statusCode)
 
 	_, _ = w.Write([]byte(shortURL))
 }

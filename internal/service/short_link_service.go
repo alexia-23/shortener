@@ -13,7 +13,23 @@ const maxGenerateAttempts = 10
 var (
 	ErrGenerateUniqueID  = errors.New("failed to generate unique short link ID")
 	ErrShortLinkIDExists = errors.New("short link ID already exists")
+	ErrOriginalURLExists = errors.New("original URL already exists")
 )
+
+type OriginalURLExistsError struct {
+	ID string
+}
+
+func (err *OriginalURLExistsError) Error() string {
+	return fmt.Sprintf(
+		"original URL already has short link with ID %q",
+		err.ID,
+	)
+}
+
+func (err *OriginalURLExistsError) Unwrap() error {
+	return ErrOriginalURLExists
+}
 
 type ShortLinkRepository interface {
 	Save(
