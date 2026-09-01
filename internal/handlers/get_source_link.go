@@ -12,8 +12,16 @@ func (handler *Handler) handleGetSourceLink(
 ) {
 	id := chi.URLParam(r, "id")
 
-	originalURL, ok := handler.service.GetSourceLink(id)
-	if !ok {
+	originalURL, found, err := handler.service.GetSourceLink(
+		r.Context(),
+		id,
+	)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	if !found {
 		writeBadRequest(w)
 		return
 	}

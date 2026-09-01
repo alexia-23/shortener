@@ -9,13 +9,17 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestHandler_handleCreateShortLinkJSON_Success(t *testing.T) {
 	service := NewMockShortLinkService(t)
 
 	service.EXPECT().
-		CreateShortLink("https://example.com").
+		CreateShortLink(
+			mock.Anything,
+			"https://example.com",
+		).
 		Return("MQ", nil).
 		Once()
 
@@ -57,7 +61,10 @@ func TestHandler_handleCreateShortLinkJSON_ServiceError(t *testing.T) {
 	service := NewMockShortLinkService(t)
 
 	service.EXPECT().
-		CreateShortLink("https://example.com").
+		CreateShortLink(
+			mock.Anything,
+			"https://example.com",
+		).
 		Return("", errors.New("service error")).
 		Once()
 
@@ -82,7 +89,10 @@ func TestHandler_handleCreateShortLinkJSON_URLWithSpaces(t *testing.T) {
 	service := NewMockShortLinkService(t)
 
 	service.EXPECT().
-		CreateShortLink("https://example.com").
+		CreateShortLink(
+			mock.Anything,
+			"https://example.com",
+		).
 		Return("MQ", nil).
 		Once()
 
@@ -103,11 +113,16 @@ func TestHandler_handleCreateShortLinkJSON_URLWithSpaces(t *testing.T) {
 	assert.Equal(t, http.StatusCreated, recorder.Code)
 }
 
-func TestHandler_handleCreateShortLinkJSON_BaseURLWithTrailingSlash(t *testing.T) {
+func TestHandler_handleCreateShortLinkJSON_BaseURLWithTrailingSlash(
+	t *testing.T,
+) {
 	service := NewMockShortLinkService(t)
 
 	service.EXPECT().
-		CreateShortLink("https://example.com").
+		CreateShortLink(
+			mock.Anything,
+			"https://example.com",
+		).
 		Return("MQ", nil).
 		Once()
 
@@ -181,7 +196,10 @@ func TestHandler_handleCreateShortLinkJSON_UppercaseURLKey(t *testing.T) {
 	service := NewMockShortLinkService(t)
 
 	service.EXPECT().
-		CreateShortLink("https://example.com").
+		CreateShortLink(
+			mock.Anything,
+			"https://example.com",
+		).
 		Return("MQ", nil).
 		Once()
 
@@ -206,7 +224,10 @@ func TestHandler_handleCreateShortLinkJSON_UnknownField(t *testing.T) {
 	service := NewMockShortLinkService(t)
 
 	service.EXPECT().
-		CreateShortLink("https://example.com").
+		CreateShortLink(
+			mock.Anything,
+			"https://example.com",
+		).
 		Return("MQ", nil).
 		Once()
 
@@ -229,6 +250,7 @@ func TestHandler_handleCreateShortLinkJSON_UnknownField(t *testing.T) {
 
 	assert.Equal(t, http.StatusCreated, recorder.Code)
 }
+
 func TestHandler_handleCreateShortLinkJSON_BadRequest(t *testing.T) {
 	tests := []struct {
 		name string

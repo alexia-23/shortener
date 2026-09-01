@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -127,7 +128,10 @@ func TestHandler_handleCreateShortLink(t *testing.T) {
 
 			if test.wantSavedURL != "" {
 				service.EXPECT().
-					CreateShortLink(test.wantSavedURL).
+					CreateShortLink(
+						mock.Anything,
+						test.wantSavedURL,
+					).
 					Return("MQ", nil).
 					Once()
 			}

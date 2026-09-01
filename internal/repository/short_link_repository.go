@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -46,13 +47,18 @@ func NewShortLinkRepository(
 }
 
 func (repository *FileRepository) Save(
+	ctx context.Context,
 	id string,
 	originalURL string,
 ) error {
 	repository.mutex.Lock()
 	defer repository.mutex.Unlock()
 
-	if err := repository.memory.Save(id, originalURL); err != nil {
+	if err := repository.memory.Save(
+		ctx,
+		id,
+		originalURL,
+	); err != nil {
 		return err
 	}
 
@@ -73,12 +79,16 @@ func (repository *FileRepository) Save(
 }
 
 func (repository *FileRepository) Get(
+	ctx context.Context,
 	id string,
-) (string, bool) {
+) (string, bool, error) {
 	repository.mutex.RLock()
 	defer repository.mutex.RUnlock()
 
-	return repository.memory.Get(id)
+	return repository.memory.Get(
+		ctx,
+		id,
+	)
 }
 
 func (repository *FileRepository) appendToFile(
@@ -145,6 +155,7 @@ func (repository *FileRepository) loadFromFile() (err error) {
 		}
 
 		if err := repository.memory.Save(
+			context.Background(),
 			record.ShortURL,
 			record.OriginalURL,
 		); err != nil {

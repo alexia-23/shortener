@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -34,7 +35,10 @@ func TestRouter_Routes(t *testing.T) {
 			body:   "https://example.com",
 			setupMock: func(service *MockShortLinkService) {
 				service.EXPECT().
-					CreateShortLink("https://example.com").
+					CreateShortLink(
+						mock.Anything,
+						"https://example.com",
+					).
 					Return("MQ", nil).
 					Once()
 			},
@@ -46,8 +50,15 @@ func TestRouter_Routes(t *testing.T) {
 			path:   "/MQ",
 			setupMock: func(service *MockShortLinkService) {
 				service.EXPECT().
-					GetSourceLink("MQ").
-					Return("https://example.com", true).
+					GetSourceLink(
+						mock.Anything,
+						"MQ",
+					).
+					Return(
+						"https://example.com",
+						true,
+						nil,
+					).
 					Once()
 			},
 			wantStatusCode: http.StatusTemporaryRedirect,

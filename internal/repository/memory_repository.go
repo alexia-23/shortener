@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -19,6 +20,7 @@ func NewMemoryRepository() *MemoryRepository {
 }
 
 func (repository *MemoryRepository) Save(
+	_ context.Context,
 	id string,
 	originalURL string,
 ) error {
@@ -39,14 +41,15 @@ func (repository *MemoryRepository) Save(
 }
 
 func (repository *MemoryRepository) Get(
+	_ context.Context,
 	id string,
-) (string, bool) {
+) (string, bool, error) {
 	repository.mutex.RLock()
 	defer repository.mutex.RUnlock()
 
 	originalURL, found := repository.links[id]
 
-	return originalURL, found
+	return originalURL, found, nil
 }
 
 func (repository *MemoryRepository) delete(id string) {
