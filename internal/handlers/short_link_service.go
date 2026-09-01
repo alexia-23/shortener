@@ -8,6 +8,11 @@ type ShortLinkService interface {
 		originalURL string,
 	) (string, error)
 
+	CreateShortLinksBatch(
+		ctx context.Context,
+		originalURLs []string,
+	) ([]string, error)
+
 	GetSourceLink(
 		ctx context.Context,
 		id string,

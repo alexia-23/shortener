@@ -22,10 +22,20 @@ type ShortLinkRepository interface {
 		originalURL string,
 	) error
 
+	SaveBatch(
+		ctx context.Context,
+		links []ShortLink,
+	) error
+
 	Get(
 		ctx context.Context,
 		id string,
 	) (string, bool, error)
+}
+
+type ShortLink struct {
+	ID          string
+	OriginalURL string
 }
 
 type ShortLinkService struct {
@@ -70,6 +80,60 @@ func (service *ShortLinkService) CreateShortLink(
 	}
 
 	return "", ErrGenerateUniqueID
+}
+
+func (service *ShortLinkService) CreateShortLinksBatch(
+	ctx context.Context,
+	originalURLs []string,
+) ([]string, error) {
+	if len(originalURLs) == 0 {
+		return []string{}, nil
+	}
+
+	for attempt := 0; attempt < maxGenerateAttempts; attempt++ {
+		links := make([]ShortLink, 0, len(originalURLs))
+		ids := make([]string, 0, len(originalURLs))
+		generatedIDs := make(map[string]struct{}, len(originalURLs))
+
+		for _, originalURL := range originalURLs {
+			id, err := generateID()
+			if err != nil {
+				return nil, err
+			}
+
+			if _, exists := generatedIDs[id]; exists {
+				links = nil
+				break
+			}
+
+			generatedIDs[id] = struct{}{}
+			ids = append(ids, id)
+			links = append(links, ShortLink{
+				ID:          id,
+				OriginalURL: originalURL,
+			})
+		}
+
+		if links == nil {
+			continue
+		}
+
+		err := service.repository.SaveBatch(ctx, links)
+		if err == nil {
+			return ids, nil
+		}
+
+		if errors.Is(err, ErrShortLinkIDExists) {
+			continue
+		}
+
+		return nil, fmt.Errorf(
+			"save short links batch: %w",
+			err,
+		)
+	}
+
+	return nil, ErrGenerateUniqueID
 }
 
 func (service *ShortLinkService) GetSourceLink(
