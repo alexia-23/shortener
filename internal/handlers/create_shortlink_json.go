@@ -45,7 +45,10 @@ func (handler *Handler) handleCreateShortLinkJSON(
 		return
 	}
 
-	id, err := handler.service.CreateShortLink(originalURL)
+	id, err := handler.service.CreateShortLink(
+		r.Context(),
+		originalURL,
+	)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return

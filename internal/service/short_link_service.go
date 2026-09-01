@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
@@ -15,8 +16,16 @@ var (
 )
 
 type ShortLinkRepository interface {
-	Save(id string, originalURL string) error
-	Get(id string) (string, bool)
+	Save(
+		ctx context.Context,
+		id string,
+		originalURL string,
+	) error
+
+	Get(
+		ctx context.Context,
+		id string,
+	) (string, bool, error)
 }
 
 type ShortLinkService struct {
@@ -32,6 +41,7 @@ func NewShortLinkService(
 }
 
 func (service *ShortLinkService) CreateShortLink(
+	ctx context.Context,
 	originalURL string,
 ) (string, error) {
 	for attempt := 0; attempt < maxGenerateAttempts; attempt++ {
@@ -40,23 +50,36 @@ func (service *ShortLinkService) CreateShortLink(
 			return "", err
 		}
 
-		err = service.repository.Save(id, originalURL)
+		err = service.repository.Save(
+			ctx,
+			id,
+			originalURL,
+		)
 		if err == nil {
 			return id, nil
 		}
+
 		if errors.Is(err, ErrShortLinkIDExists) {
 			continue
 		}
-		return "", fmt.Errorf("save short link: %w", err)
+
+		return "", fmt.Errorf(
+			"save short link: %w",
+			err,
+		)
 	}
 
 	return "", ErrGenerateUniqueID
 }
 
 func (service *ShortLinkService) GetSourceLink(
+	ctx context.Context,
 	id string,
-) (string, bool) {
-	return service.repository.Get(id)
+) (string, bool, error) {
+	return service.repository.Get(
+		ctx,
+		id,
+	)
 }
 
 func generateID() (string, error) {
@@ -64,8 +87,13 @@ func generateID() (string, error) {
 
 	_, err := rand.Read(randomBytes)
 	if err != nil {
-		return "", fmt.Errorf("generate random ID: %w", err)
+		return "", fmt.Errorf(
+			"generate random ID: %w",
+			err,
+		)
 	}
 
-	return base64.RawURLEncoding.EncodeToString(randomBytes), nil
+	return base64.RawURLEncoding.EncodeToString(
+		randomBytes,
+	), nil
 }

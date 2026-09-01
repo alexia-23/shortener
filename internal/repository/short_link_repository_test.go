@@ -2,6 +2,7 @@ package repository
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -21,13 +22,23 @@ func TestShortLinkRepository_SaveAndGet(t *testing.T) {
 	repository, err := NewShortLinkRepository(fileStoragePath)
 	require.NoError(t, err)
 
+	ctx := context.Background()
+
 	id := "test-id"
 	originalURL := "https://example.com"
 
-	err = repository.Save(id, originalURL)
+	err = repository.Save(
+		ctx,
+		id,
+		originalURL,
+	)
 	require.NoError(t, err)
 
-	savedURL, found := repository.Get(id)
+	savedURL, found, err := repository.Get(
+		ctx,
+		id,
+	)
+	require.NoError(t, err)
 
 	assert.True(t, found)
 	assert.Equal(t, originalURL, savedURL)
@@ -42,7 +53,13 @@ func TestShortLinkRepository_GetUnknownID(t *testing.T) {
 	repository, err := NewShortLinkRepository(fileStoragePath)
 	require.NoError(t, err)
 
-	originalURL, found := repository.Get("unknown")
+	ctx := context.Background()
+
+	originalURL, found, err := repository.Get(
+		ctx,
+		"unknown",
+	)
+	require.NoError(t, err)
 
 	assert.False(t, found)
 	assert.Empty(t, originalURL)
@@ -57,12 +74,16 @@ func TestShortLinkRepository_SaveDifferentIDs(t *testing.T) {
 	repository, err := NewShortLinkRepository(fileStoragePath)
 	require.NoError(t, err)
 
+	ctx := context.Background()
+
 	firstErr := repository.Save(
+		ctx,
 		"first-id",
 		"https://example.com/first",
 	)
 
 	secondErr := repository.Save(
+		ctx,
 		"second-id",
 		"https://example.com/second",
 	)
@@ -80,14 +101,18 @@ func TestShortLinkRepository_SaveCollision(t *testing.T) {
 	repository, err := NewShortLinkRepository(fileStoragePath)
 	require.NoError(t, err)
 
+	ctx := context.Background()
+
 	id := "same-id"
 
 	firstErr := repository.Save(
+		ctx,
 		id,
 		"https://example.com/first",
 	)
 
 	secondErr := repository.Save(
+		ctx,
 		id,
 		"https://example.com/second",
 	)
@@ -99,7 +124,11 @@ func TestShortLinkRepository_SaveCollision(t *testing.T) {
 		service.ErrShortLinkIDExists,
 	)
 
-	savedURL, found := repository.Get(id)
+	savedURL, found, err := repository.Get(
+		ctx,
+		id,
+	)
+	require.NoError(t, err)
 
 	require.True(t, found)
 	assert.Equal(
@@ -118,10 +147,16 @@ func TestShortLinkRepository_SaveToFile(t *testing.T) {
 	repository, err := NewShortLinkRepository(fileStoragePath)
 	require.NoError(t, err)
 
+	ctx := context.Background()
+
 	id := "test-id"
 	originalURL := "https://example.com"
 
-	err = repository.Save(id, originalURL)
+	err = repository.Save(
+		ctx,
+		id,
+		originalURL,
+	)
 	require.NoError(t, err)
 
 	file, err := os.Open(fileStoragePath)
@@ -155,13 +190,17 @@ func TestShortLinkRepository_AppendToFile(t *testing.T) {
 	repository, err := NewShortLinkRepository(fileStoragePath)
 	require.NoError(t, err)
 
+	ctx := context.Background()
+
 	err = repository.Save(
+		ctx,
 		"first-id",
 		"https://example.com/first",
 	)
 	require.NoError(t, err)
 
 	err = repository.Save(
+		ctx,
 		"second-id",
 		"https://example.com/second",
 	)
@@ -213,16 +252,26 @@ func TestShortLinkRepository_LoadFromFile(t *testing.T) {
 	firstRepository, err := NewShortLinkRepository(fileStoragePath)
 	require.NoError(t, err)
 
+	ctx := context.Background()
+
 	id := "test-id"
 	originalURL := "https://example.com"
 
-	err = firstRepository.Save(id, originalURL)
+	err = firstRepository.Save(
+		ctx,
+		id,
+		originalURL,
+	)
 	require.NoError(t, err)
 
 	secondRepository, err := NewShortLinkRepository(fileStoragePath)
 	require.NoError(t, err)
 
-	savedURL, found := secondRepository.Get(id)
+	savedURL, found, err := secondRepository.Get(
+		ctx,
+		id,
+	)
+	require.NoError(t, err)
 
 	require.True(t, found)
 	assert.Equal(t, originalURL, savedURL)
@@ -237,7 +286,10 @@ func TestShortLinkRepository_ContinuesUUIDAfterReload(t *testing.T) {
 	firstRepository, err := NewShortLinkRepository(fileStoragePath)
 	require.NoError(t, err)
 
+	ctx := context.Background()
+
 	err = firstRepository.Save(
+		ctx,
 		"first-id",
 		"https://example.com/first",
 	)
@@ -247,6 +299,7 @@ func TestShortLinkRepository_ContinuesUUIDAfterReload(t *testing.T) {
 	require.NoError(t, err)
 
 	err = secondRepository.Save(
+		ctx,
 		"second-id",
 		"https://example.com/second",
 	)

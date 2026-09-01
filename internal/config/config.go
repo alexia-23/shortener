@@ -32,7 +32,7 @@ func NewConfig() *Config {
 	flag.StringVar(
 		&cfg.FileStoragePath,
 		"f",
-		"short-url-storage.json",
+		"",
 		"path to file storage",
 	)
 

@@ -8,10 +8,12 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/alexia-23/shortener/internal/config"
+	database "github.com/alexia-23/shortener/internal/db"
 	"github.com/alexia-23/shortener/internal/handlers"
 	"github.com/alexia-23/shortener/internal/middleware"
 	"github.com/alexia-23/shortener/internal/repository"
 	"github.com/alexia-23/shortener/internal/service"
+	"github.com/alexia-23/shortener/migrations"
 )
 
 func main() {
@@ -24,6 +26,7 @@ func main() {
 		)
 		return
 	}
+
 	defer func() {
 		_ = logger.Sync()
 	}()
@@ -49,11 +52,21 @@ func main() {
 		}
 	}()
 
+	if cfg.DatabaseDSN != "" {
+		if err := migrations.Up(db); err != nil {
+			sugar.Fatalw(
+				"failed to apply database migrations",
+				"error", err,
+			)
+			return
+		}
+	}
+
 	var shortLinkRepository service.ShortLinkRepository
 
-	if cfg.FileStoragePath == "" {
-		shortLinkRepository = repository.NewMemoryRepository()
-	} else {
+	if cfg.DatabaseDSN != "" {
+		shortLinkRepository = database.NewPersistenceService(db)
+	} else if cfg.FileStoragePath != "" {
 		fileRepository, err := repository.NewFileRepository(
 			cfg.FileStoragePath,
 		)
@@ -66,6 +79,8 @@ func main() {
 		}
 
 		shortLinkRepository = fileRepository
+	} else {
+		shortLinkRepository = repository.NewMemoryRepository()
 	}
 
 	shortLinkService := service.NewShortLinkService(shortLinkRepository)

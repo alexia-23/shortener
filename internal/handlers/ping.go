@@ -5,13 +5,13 @@ import (
 	"net/http"
 )
 
-type DatabasePinger interface {
+type PersistenceService interface {
 	PingContext(ctx context.Context) error
 }
 
-func NewPingHandler(db DatabasePinger) http.HandlerFunc {
+func NewPingHandler(persistence PersistenceService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if err := db.PingContext(r.Context()); err != nil {
+		if err := persistence.PingContext(r.Context()); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
