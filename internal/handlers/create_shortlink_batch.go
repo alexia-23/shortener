@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
-	"strings"
 )
 
 type createShortLinksBatchRequestItem struct {
@@ -40,19 +39,16 @@ func (handler *Handler) handleCreateShortLinksBatch(
 	}
 
 	originalURLs := make([]string, 0, len(request))
-	for index := range request {
-		originalURL := strings.TrimSpace(request[index].OriginalURL)
 
-		parsedURL, err := url.ParseRequestURI(originalURL)
-		if originalURL == "" ||
-			err != nil ||
-			parsedURL.Scheme == "" ||
-			parsedURL.Host == "" {
+	for _, item := range request {
+		originalURL, valid := validateOriginalURL(
+			item.OriginalURL,
+		)
+		if !valid {
 			writeBadRequest(w)
 			return
 		}
 
-		request[index].OriginalURL = originalURL
 		originalURLs = append(originalURLs, originalURL)
 	}
 
@@ -60,7 +56,7 @@ func (handler *Handler) handleCreateShortLinksBatch(
 		r.Context(),
 		originalURLs,
 	)
-	if err != nil || len(ids) != len(request) {
+	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

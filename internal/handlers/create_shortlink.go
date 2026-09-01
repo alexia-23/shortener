@@ -5,7 +5,6 @@ import (
 	"mime"
 	"net/http"
 	"net/url"
-	"strings"
 )
 
 const maxRequestBodySize int64 = 1 << 20
@@ -14,7 +13,6 @@ func (handler *Handler) handleCreateShortLink(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
-
 	contentType := r.Header.Get("Content-Type")
 
 	mediaType, _, err := mime.ParseMediaType(contentType)
@@ -35,15 +33,8 @@ func (handler *Handler) handleCreateShortLink(
 		return
 	}
 
-	originalURL := strings.TrimSpace(string(body))
-
-	if originalURL == "" {
-		writeBadRequest(w)
-		return
-	}
-
-	parsedURL, err := url.ParseRequestURI(originalURL)
-	if err != nil || parsedURL.Scheme == "" || parsedURL.Host == "" {
+	originalURL, valid := validateOriginalURL(string(body))
+	if !valid {
 		writeBadRequest(w)
 		return
 	}
