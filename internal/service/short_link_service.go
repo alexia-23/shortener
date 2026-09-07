@@ -108,7 +108,6 @@ func (service *ShortLinkService) CreateShortLinksBatch(
 
 	for attempt := 0; attempt < maxGenerateAttempts; attempt++ {
 		links := make([]ShortLink, 0, len(originalURLs))
-		ids := make([]string, 0, len(originalURLs))
 		generatedIDs := make(map[string]struct{}, len(originalURLs))
 
 		for _, originalURL := range originalURLs {
@@ -123,7 +122,6 @@ func (service *ShortLinkService) CreateShortLinksBatch(
 			}
 
 			generatedIDs[id] = struct{}{}
-			ids = append(ids, id)
 			links = append(links, ShortLink{
 				ID:          id,
 				OriginalURL: originalURL,
@@ -136,6 +134,12 @@ func (service *ShortLinkService) CreateShortLinksBatch(
 
 		err := service.repository.SaveBatch(ctx, links)
 		if err == nil {
+			ids := make([]string, len(links))
+
+			for index, link := range links {
+				ids[index] = link.ID
+			}
+
 			return ids, nil
 		}
 
