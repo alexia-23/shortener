@@ -2,6 +2,7 @@ package migrations
 
 import (
 	"io/fs"
+	"strings"
 	"testing"
 
 	"github.com/golang-migrate/migrate/v4/source"
@@ -43,4 +44,23 @@ func TestEmbeddedMigrationFiles(t *testing.T) {
 			migration.Direction,
 		)
 	}
+}
+
+func TestOriginalURLUniqueIndexMigration(t *testing.T) {
+	migration, err := fs.ReadFile(
+		migrationFiles,
+		"000002_add_original_url_unique_index.up.sql",
+	)
+	require.NoError(t, err)
+
+	migrationSQL := string(migration)
+
+	require.True(
+		t,
+		strings.Contains(migrationSQL, "CREATE UNIQUE INDEX"),
+	)
+	require.True(
+		t,
+		strings.Contains(migrationSQL, "original_url"),
+	)
 }

@@ -11,7 +11,7 @@ import (
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 )
 
-//go:embed 000001_create_short_urls.up.sql 000001_create_short_urls.down.sql
+//go:embed *.sql
 var migrationFiles embed.FS
 
 func Up(db *sql.DB) error {

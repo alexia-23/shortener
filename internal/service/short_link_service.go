@@ -13,7 +13,23 @@ const maxGenerateAttempts = 10
 var (
 	ErrGenerateUniqueID  = errors.New("failed to generate unique short link ID")
 	ErrShortLinkIDExists = errors.New("short link ID already exists")
+	ErrOriginalURLExists = errors.New("original URL already exists")
 )
+
+type OriginalURLExistsError struct {
+	ID string
+}
+
+func (err *OriginalURLExistsError) Error() string {
+	return fmt.Sprintf(
+		"original URL already has short link with ID %q",
+		err.ID,
+	)
+}
+
+func (err *OriginalURLExistsError) Unwrap() error {
+	return ErrOriginalURLExists
+}
 
 type ShortLinkRepository interface {
 	Save(
@@ -92,7 +108,6 @@ func (service *ShortLinkService) CreateShortLinksBatch(
 
 	for attempt := 0; attempt < maxGenerateAttempts; attempt++ {
 		links := make([]ShortLink, 0, len(originalURLs))
-		ids := make([]string, 0, len(originalURLs))
 		generatedIDs := make(map[string]struct{}, len(originalURLs))
 
 		for _, originalURL := range originalURLs {
@@ -107,7 +122,6 @@ func (service *ShortLinkService) CreateShortLinksBatch(
 			}
 
 			generatedIDs[id] = struct{}{}
-			ids = append(ids, id)
 			links = append(links, ShortLink{
 				ID:          id,
 				OriginalURL: originalURL,
@@ -120,6 +134,12 @@ func (service *ShortLinkService) CreateShortLinksBatch(
 
 		err := service.repository.SaveBatch(ctx, links)
 		if err == nil {
+			ids := make([]string, len(links))
+
+			for index, link := range links {
+				ids[index] = link.ID
+			}
+
 			return ids, nil
 		}
 

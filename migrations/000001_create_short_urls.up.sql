@@ -1,4 +1,5 @@
 CREATE TABLE short_urls (
-    short_url VARCHAR(255) PRIMARY KEY,
-    original_url TEXT NOT NULL
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    short_url VARCHAR(255) NOT NULL UNIQUE,
+    original_url VARCHAR(2048) NOT NULL
 );

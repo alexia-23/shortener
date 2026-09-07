@@ -5,13 +5,23 @@ import (
 	"net/http"
 )
 
-type PersistenceService interface {
+type Pinger interface {
 	PingContext(ctx context.Context) error
 }
 
-func NewPingHandler(persistence PersistenceService) http.HandlerFunc {
+type noopPinger struct{}
+
+func (noopPinger) PingContext(_ context.Context) error {
+	return nil
+}
+
+func NewPingHandler(pinger Pinger) http.HandlerFunc {
+	if pinger == nil {
+		pinger = noopPinger{}
+	}
+
 	return func(w http.ResponseWriter, r *http.Request) {
-		if err := persistence.PingContext(r.Context()); err != nil {
+		if err := pinger.PingContext(r.Context()); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}

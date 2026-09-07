@@ -88,13 +88,6 @@ func (repository *MemoryRepository) Get(
 	return originalURL, found, nil
 }
 
-func (repository *MemoryRepository) delete(id string) {
-	repository.mutex.Lock()
-	defer repository.mutex.Unlock()
-
-	delete(repository.links, id)
-}
-
 func (repository *MemoryRepository) deleteBatch(
 	links []service.ShortLink,
 ) {

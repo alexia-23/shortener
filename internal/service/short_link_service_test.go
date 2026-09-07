@@ -142,6 +142,37 @@ func TestShortLinkService_CreateShortLink_ReturnsErrorAfterMaxAttempts(
 	assert.Empty(t, id)
 }
 
+func TestShortLinkService_CreateShortLink_ReturnsExistingOriginalURLError(
+	t *testing.T,
+) {
+	repository := NewMockShortLinkRepository(t)
+	existingError := &OriginalURLExistsError{ID: "existing-id"}
+
+	repository.EXPECT().
+		Save(
+			mock.Anything,
+			mock.Anything,
+			"https://example.com",
+		).
+		Return(existingError).
+		Once()
+
+	service := NewShortLinkService(repository)
+
+	id, err := service.CreateShortLink(
+		context.Background(),
+		"https://example.com",
+	)
+
+	assert.Empty(t, id)
+	require.ErrorIs(t, err, ErrOriginalURLExists)
+
+	var actualError *OriginalURLExistsError
+
+	require.ErrorAs(t, err, &actualError)
+	assert.Equal(t, "existing-id", actualError.ID)
+}
+
 func TestShortLinkService_CreateShortLinksBatch(t *testing.T) {
 	repository := NewMockShortLinkRepository(t)
 

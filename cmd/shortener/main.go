@@ -13,7 +13,6 @@ import (
 	"github.com/alexia-23/shortener/internal/middleware"
 	"github.com/alexia-23/shortener/internal/repository"
 	"github.com/alexia-23/shortener/internal/service"
-	"github.com/alexia-23/shortener/migrations"
 )
 
 func main() {
@@ -34,39 +33,39 @@ func main() {
 	sugar := logger.Sugar()
 	cfg := config.NewConfig()
 
-	db, err := sql.Open("pgx", cfg.DatabaseDSN)
-	if err != nil {
-		sugar.Fatalw(
-			"failed to initialize database",
-			"error", err,
-		)
-		return
-	}
-
-	defer func() {
-		if err := db.Close(); err != nil {
-			sugar.Errorw(
-				"failed to close database",
-				"error", err,
-			)
-		}
-	}()
+	var shortLinkRepository service.ShortLinkRepository
+	var pinger handlers.Pinger
 
 	if cfg.DatabaseDSN != "" {
-		if err := migrations.Up(db); err != nil {
+		db, err := sql.Open("pgx", cfg.DatabaseDSN)
+		if err != nil {
 			sugar.Fatalw(
-				"failed to apply database migrations",
+				"failed to initialize database",
 				"error", err,
 			)
 			return
 		}
-	}
 
-	var shortLinkRepository service.ShortLinkRepository
-	persistenceService := database.NewPersistenceService(db)
+		defer func() {
+			if err := db.Close(); err != nil {
+				sugar.Errorw(
+					"failed to close database",
+					"error", err,
+				)
+			}
+		}()
 
-	if cfg.DatabaseDSN != "" {
-		shortLinkRepository = persistenceService
+		postgresRepository, err := database.NewPostgresRepository(db)
+		if err != nil {
+			sugar.Fatalw(
+				"failed to initialize postgres repository",
+				"error", err,
+			)
+			return
+		}
+
+		shortLinkRepository = postgresRepository
+		pinger = postgresRepository
 	} else if cfg.FileStoragePath != "" {
 		fileRepository, err := repository.NewFileRepository(
 			cfg.FileStoragePath,
@@ -95,7 +94,7 @@ func main() {
 
 	router.Get(
 		"/ping",
-		handlers.NewPingHandler(persistenceService),
+		handlers.NewPingHandler(pinger),
 	)
 
 	sugar.Infow(
