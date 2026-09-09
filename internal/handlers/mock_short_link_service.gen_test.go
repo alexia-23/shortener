@@ -5,6 +5,8 @@
 package handlers
 
 import (
+	"context"
+
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -36,8 +38,8 @@ func (_m *MockShortLinkService) EXPECT() *MockShortLinkService_Expecter {
 }
 
 // CreateShortLink provides a mock function for the type MockShortLinkService
-func (_mock *MockShortLinkService) CreateShortLink(originalURL string) (string, error) {
-	ret := _mock.Called(originalURL)
+func (_mock *MockShortLinkService) CreateShortLink(ctx context.Context, originalURL string) (string, error) {
+	ret := _mock.Called(ctx, originalURL)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CreateShortLink")
@@ -45,16 +47,16 @@ func (_mock *MockShortLinkService) CreateShortLink(originalURL string) (string, 
 
 	var r0 string
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(string) (string, error)); ok {
-		return returnFunc(originalURL)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (string, error)); ok {
+		return returnFunc(ctx, originalURL)
 	}
-	if returnFunc, ok := ret.Get(0).(func(string) string); ok {
-		r0 = returnFunc(originalURL)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) string); ok {
+		r0 = returnFunc(ctx, originalURL)
 	} else {
 		r0 = ret.Get(0).(string)
 	}
-	if returnFunc, ok := ret.Get(1).(func(string) error); ok {
-		r1 = returnFunc(originalURL)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = returnFunc(ctx, originalURL)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -67,19 +69,25 @@ type MockShortLinkService_CreateShortLink_Call struct {
 }
 
 // CreateShortLink is a helper method to define mock.On call
+//   - ctx context.Context
 //   - originalURL string
-func (_e *MockShortLinkService_Expecter) CreateShortLink(originalURL interface{}) *MockShortLinkService_CreateShortLink_Call {
-	return &MockShortLinkService_CreateShortLink_Call{Call: _e.mock.On("CreateShortLink", originalURL)}
+func (_e *MockShortLinkService_Expecter) CreateShortLink(ctx any, originalURL any) *MockShortLinkService_CreateShortLink_Call {
+	return &MockShortLinkService_CreateShortLink_Call{Call: _e.mock.On("CreateShortLink", ctx, originalURL)}
 }
 
-func (_c *MockShortLinkService_CreateShortLink_Call) Run(run func(originalURL string)) *MockShortLinkService_CreateShortLink_Call {
+func (_c *MockShortLinkService_CreateShortLink_Call) Run(run func(ctx context.Context, originalURL string)) *MockShortLinkService_CreateShortLink_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 string
+		var arg0 context.Context
 		if args[0] != nil {
-			arg0 = args[0].(string)
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
 		}
 		run(
 			arg0,
+			arg1,
 		)
 	})
 	return _c
@@ -90,14 +98,82 @@ func (_c *MockShortLinkService_CreateShortLink_Call) Return(s string, err error)
 	return _c
 }
 
-func (_c *MockShortLinkService_CreateShortLink_Call) RunAndReturn(run func(originalURL string) (string, error)) *MockShortLinkService_CreateShortLink_Call {
+func (_c *MockShortLinkService_CreateShortLink_Call) RunAndReturn(run func(ctx context.Context, originalURL string) (string, error)) *MockShortLinkService_CreateShortLink_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CreateShortLinksBatch provides a mock function for the type MockShortLinkService
+func (_mock *MockShortLinkService) CreateShortLinksBatch(ctx context.Context, originalURLs []string) ([]string, error) {
+	ret := _mock.Called(ctx, originalURLs)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateShortLinksBatch")
+	}
+
+	var r0 []string
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []string) ([]string, error)); ok {
+		return returnFunc(ctx, originalURLs)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []string) []string); ok {
+		r0 = returnFunc(ctx, originalURLs)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]string)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, []string) error); ok {
+		r1 = returnFunc(ctx, originalURLs)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockShortLinkService_CreateShortLinksBatch_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateShortLinksBatch'
+type MockShortLinkService_CreateShortLinksBatch_Call struct {
+	*mock.Call
+}
+
+// CreateShortLinksBatch is a helper method to define mock.On call
+//   - ctx context.Context
+//   - originalURLs []string
+func (_e *MockShortLinkService_Expecter) CreateShortLinksBatch(ctx any, originalURLs any) *MockShortLinkService_CreateShortLinksBatch_Call {
+	return &MockShortLinkService_CreateShortLinksBatch_Call{Call: _e.mock.On("CreateShortLinksBatch", ctx, originalURLs)}
+}
+
+func (_c *MockShortLinkService_CreateShortLinksBatch_Call) Run(run func(ctx context.Context, originalURLs []string)) *MockShortLinkService_CreateShortLinksBatch_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 []string
+		if args[1] != nil {
+			arg1 = args[1].([]string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockShortLinkService_CreateShortLinksBatch_Call) Return(strings []string, err error) *MockShortLinkService_CreateShortLinksBatch_Call {
+	_c.Call.Return(strings, err)
+	return _c
+}
+
+func (_c *MockShortLinkService_CreateShortLinksBatch_Call) RunAndReturn(run func(ctx context.Context, originalURLs []string) ([]string, error)) *MockShortLinkService_CreateShortLinksBatch_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetSourceLink provides a mock function for the type MockShortLinkService
-func (_mock *MockShortLinkService) GetSourceLink(id string) (string, bool) {
-	ret := _mock.Called(id)
+func (_mock *MockShortLinkService) GetSourceLink(ctx context.Context, id string) (string, bool, error) {
+	ret := _mock.Called(ctx, id)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetSourceLink")
@@ -105,20 +181,26 @@ func (_mock *MockShortLinkService) GetSourceLink(id string) (string, bool) {
 
 	var r0 string
 	var r1 bool
-	if returnFunc, ok := ret.Get(0).(func(string) (string, bool)); ok {
-		return returnFunc(id)
+	var r2 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (string, bool, error)); ok {
+		return returnFunc(ctx, id)
 	}
-	if returnFunc, ok := ret.Get(0).(func(string) string); ok {
-		r0 = returnFunc(id)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) string); ok {
+		r0 = returnFunc(ctx, id)
 	} else {
 		r0 = ret.Get(0).(string)
 	}
-	if returnFunc, ok := ret.Get(1).(func(string) bool); ok {
-		r1 = returnFunc(id)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string) bool); ok {
+		r1 = returnFunc(ctx, id)
 	} else {
 		r1 = ret.Get(1).(bool)
 	}
-	return r0, r1
+	if returnFunc, ok := ret.Get(2).(func(context.Context, string) error); ok {
+		r2 = returnFunc(ctx, id)
+	} else {
+		r2 = ret.Error(2)
+	}
+	return r0, r1, r2
 }
 
 // MockShortLinkService_GetSourceLink_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetSourceLink'
@@ -127,30 +209,36 @@ type MockShortLinkService_GetSourceLink_Call struct {
 }
 
 // GetSourceLink is a helper method to define mock.On call
+//   - ctx context.Context
 //   - id string
-func (_e *MockShortLinkService_Expecter) GetSourceLink(id interface{}) *MockShortLinkService_GetSourceLink_Call {
-	return &MockShortLinkService_GetSourceLink_Call{Call: _e.mock.On("GetSourceLink", id)}
+func (_e *MockShortLinkService_Expecter) GetSourceLink(ctx any, id any) *MockShortLinkService_GetSourceLink_Call {
+	return &MockShortLinkService_GetSourceLink_Call{Call: _e.mock.On("GetSourceLink", ctx, id)}
 }
 
-func (_c *MockShortLinkService_GetSourceLink_Call) Run(run func(id string)) *MockShortLinkService_GetSourceLink_Call {
+func (_c *MockShortLinkService_GetSourceLink_Call) Run(run func(ctx context.Context, id string)) *MockShortLinkService_GetSourceLink_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 string
+		var arg0 context.Context
 		if args[0] != nil {
-			arg0 = args[0].(string)
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
 		}
 		run(
 			arg0,
+			arg1,
 		)
 	})
 	return _c
 }
 
-func (_c *MockShortLinkService_GetSourceLink_Call) Return(s string, b bool) *MockShortLinkService_GetSourceLink_Call {
-	_c.Call.Return(s, b)
+func (_c *MockShortLinkService_GetSourceLink_Call) Return(s string, b bool, err error) *MockShortLinkService_GetSourceLink_Call {
+	_c.Call.Return(s, b, err)
 	return _c
 }
 
-func (_c *MockShortLinkService_GetSourceLink_Call) RunAndReturn(run func(id string) (string, bool)) *MockShortLinkService_GetSourceLink_Call {
+func (_c *MockShortLinkService_GetSourceLink_Call) RunAndReturn(run func(ctx context.Context, id string) (string, bool, error)) *MockShortLinkService_GetSourceLink_Call {
 	_c.Call.Return(run)
 	return _c
 }

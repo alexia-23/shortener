@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,6 +9,8 @@ import (
 	"os"
 	"strconv"
 	"sync"
+
+	"github.com/alexia-23/shortener/internal/service"
 )
 
 type FileRepository struct {
@@ -46,52 +49,109 @@ func NewShortLinkRepository(
 }
 
 func (repository *FileRepository) Save(
+	ctx context.Context,
 	id string,
 	originalURL string,
+) error {
+	return repository.SaveBatch(
+		ctx,
+		[]service.ShortLink{
+			{
+				ID:          id,
+				OriginalURL: originalURL,
+			},
+		},
+	)
+}
+
+func (repository *FileRepository) SaveBatch(
+	ctx context.Context,
+	links []service.ShortLink,
 ) error {
 	repository.mutex.Lock()
 	defer repository.mutex.Unlock()
 
-	if err := repository.memory.Save(id, originalURL); err != nil {
+	if err := repository.memory.SaveBatch(
+		ctx,
+		links,
+	); err != nil {
 		return err
 	}
 
-	record := storedURL{
-		UUID:        strconv.Itoa(repository.nextUUID),
-		ShortURL:    id,
-		OriginalURL: originalURL,
+	records := make([]storedURL, 0, len(links))
+	for index, link := range links {
+		records = append(records, storedURL{
+			UUID:        strconv.Itoa(repository.nextUUID + index),
+			ShortURL:    link.ID,
+			OriginalURL: link.OriginalURL,
+		})
 	}
 
-	if err := repository.appendToFile(record); err != nil {
-		repository.memory.delete(id)
+	if err := repository.appendBatchToFile(records); err != nil {
+		repository.memory.deleteBatch(links)
 		return err
 	}
 
-	repository.nextUUID++
+	repository.nextUUID += len(records)
 
 	return nil
 }
 
 func (repository *FileRepository) Get(
+	ctx context.Context,
 	id string,
-) (string, bool) {
+) (string, bool, error) {
 	repository.mutex.RLock()
 	defer repository.mutex.RUnlock()
 
-	return repository.memory.Get(id)
+	return repository.memory.Get(
+		ctx,
+		id,
+	)
 }
 
-func (repository *FileRepository) appendToFile(
-	record storedURL,
+func (repository *FileRepository) appendBatchToFile(
+	records []storedURL,
 ) (err error) {
+	if len(records) == 0 {
+		return nil
+	}
+
 	file, err := os.OpenFile(
 		repository.fileStoragePath,
-		os.O_WRONLY|os.O_CREATE|os.O_APPEND,
+		os.O_RDWR|os.O_CREATE|os.O_APPEND,
 		0o666,
 	)
 	if err != nil {
 		return fmt.Errorf("open storage file: %w", err)
 	}
+
+	fileInfo, err := file.Stat()
+	if err != nil {
+		_ = file.Close()
+		return fmt.Errorf("get storage file info: %w", err)
+	}
+
+	originalSize := fileInfo.Size()
+
+	defer func() {
+		if err == nil {
+			return
+		}
+
+		if truncateErr := os.Truncate(
+			repository.fileStoragePath,
+			originalSize,
+		); truncateErr != nil {
+			err = errors.Join(
+				err,
+				fmt.Errorf(
+					"rollback storage file: %w",
+					truncateErr,
+				),
+			)
+		}
+	}()
 
 	defer func() {
 		if closeErr := file.Close(); closeErr != nil && err == nil {
@@ -99,8 +159,11 @@ func (repository *FileRepository) appendToFile(
 		}
 	}()
 
-	if err := json.NewEncoder(file).Encode(record); err != nil {
-		return fmt.Errorf("encode stored URL: %w", err)
+	encoder := json.NewEncoder(file)
+	for _, record := range records {
+		if err := encoder.Encode(record); err != nil {
+			return fmt.Errorf("encode stored URL: %w", err)
+		}
 	}
 
 	if err := file.Sync(); err != nil {
@@ -145,6 +208,7 @@ func (repository *FileRepository) loadFromFile() (err error) {
 		}
 
 		if err := repository.memory.Save(
+			context.Background(),
 			record.ShortURL,
 			record.OriginalURL,
 		); err != nil {

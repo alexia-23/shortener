@@ -5,6 +5,8 @@
 package service
 
 import (
+	"context"
+
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -36,8 +38,8 @@ func (_m *MockShortLinkRepository) EXPECT() *MockShortLinkRepository_Expecter {
 }
 
 // Get provides a mock function for the type MockShortLinkRepository
-func (_mock *MockShortLinkRepository) Get(id string) (string, bool) {
-	ret := _mock.Called(id)
+func (_mock *MockShortLinkRepository) Get(ctx context.Context, id string) (string, bool, error) {
+	ret := _mock.Called(ctx, id)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Get")
@@ -45,20 +47,26 @@ func (_mock *MockShortLinkRepository) Get(id string) (string, bool) {
 
 	var r0 string
 	var r1 bool
-	if returnFunc, ok := ret.Get(0).(func(string) (string, bool)); ok {
-		return returnFunc(id)
+	var r2 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (string, bool, error)); ok {
+		return returnFunc(ctx, id)
 	}
-	if returnFunc, ok := ret.Get(0).(func(string) string); ok {
-		r0 = returnFunc(id)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) string); ok {
+		r0 = returnFunc(ctx, id)
 	} else {
 		r0 = ret.Get(0).(string)
 	}
-	if returnFunc, ok := ret.Get(1).(func(string) bool); ok {
-		r1 = returnFunc(id)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string) bool); ok {
+		r1 = returnFunc(ctx, id)
 	} else {
 		r1 = ret.Get(1).(bool)
 	}
-	return r0, r1
+	if returnFunc, ok := ret.Get(2).(func(context.Context, string) error); ok {
+		r2 = returnFunc(ctx, id)
+	} else {
+		r2 = ret.Error(2)
+	}
+	return r0, r1, r2
 }
 
 // MockShortLinkRepository_Get_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Get'
@@ -67,68 +75,17 @@ type MockShortLinkRepository_Get_Call struct {
 }
 
 // Get is a helper method to define mock.On call
+//   - ctx context.Context
 //   - id string
-func (_e *MockShortLinkRepository_Expecter) Get(id interface{}) *MockShortLinkRepository_Get_Call {
-	return &MockShortLinkRepository_Get_Call{Call: _e.mock.On("Get", id)}
+func (_e *MockShortLinkRepository_Expecter) Get(ctx any, id any) *MockShortLinkRepository_Get_Call {
+	return &MockShortLinkRepository_Get_Call{Call: _e.mock.On("Get", ctx, id)}
 }
 
-func (_c *MockShortLinkRepository_Get_Call) Run(run func(id string)) *MockShortLinkRepository_Get_Call {
+func (_c *MockShortLinkRepository_Get_Call) Run(run func(ctx context.Context, id string)) *MockShortLinkRepository_Get_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 string
+		var arg0 context.Context
 		if args[0] != nil {
-			arg0 = args[0].(string)
-		}
-		run(
-			arg0,
-		)
-	})
-	return _c
-}
-
-func (_c *MockShortLinkRepository_Get_Call) Return(s string, b bool) *MockShortLinkRepository_Get_Call {
-	_c.Call.Return(s, b)
-	return _c
-}
-
-func (_c *MockShortLinkRepository_Get_Call) RunAndReturn(run func(id string) (string, bool)) *MockShortLinkRepository_Get_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// Save provides a mock function for the type MockShortLinkRepository
-func (_mock *MockShortLinkRepository) Save(id string, originalURL string) error {
-	ret := _mock.Called(id, originalURL)
-
-	if len(ret) == 0 {
-		panic("no return value specified for Save")
-	}
-
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(string, string) error); ok {
-		r0 = returnFunc(id, originalURL)
-	} else {
-		r0 = ret.Error(0)
-	}
-	return r0
-}
-
-// MockShortLinkRepository_Save_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Save'
-type MockShortLinkRepository_Save_Call struct {
-	*mock.Call
-}
-
-// Save is a helper method to define mock.On call
-//   - id string
-//   - originalURL string
-func (_e *MockShortLinkRepository_Expecter) Save(id interface{}, originalURL interface{}) *MockShortLinkRepository_Save_Call {
-	return &MockShortLinkRepository_Save_Call{Call: _e.mock.On("Save", id, originalURL)}
-}
-
-func (_c *MockShortLinkRepository_Save_Call) Run(run func(id string, originalURL string)) *MockShortLinkRepository_Save_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 string
-		if args[0] != nil {
-			arg0 = args[0].(string)
+			arg0 = args[0].(context.Context)
 		}
 		var arg1 string
 		if args[1] != nil {
@@ -142,12 +99,132 @@ func (_c *MockShortLinkRepository_Save_Call) Run(run func(id string, originalURL
 	return _c
 }
 
+func (_c *MockShortLinkRepository_Get_Call) Return(s string, b bool, err error) *MockShortLinkRepository_Get_Call {
+	_c.Call.Return(s, b, err)
+	return _c
+}
+
+func (_c *MockShortLinkRepository_Get_Call) RunAndReturn(run func(ctx context.Context, id string) (string, bool, error)) *MockShortLinkRepository_Get_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Save provides a mock function for the type MockShortLinkRepository
+func (_mock *MockShortLinkRepository) Save(ctx context.Context, id string, originalURL string) error {
+	ret := _mock.Called(ctx, id, originalURL)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Save")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = returnFunc(ctx, id, originalURL)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockShortLinkRepository_Save_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Save'
+type MockShortLinkRepository_Save_Call struct {
+	*mock.Call
+}
+
+// Save is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id string
+//   - originalURL string
+func (_e *MockShortLinkRepository_Expecter) Save(ctx any, id any, originalURL any) *MockShortLinkRepository_Save_Call {
+	return &MockShortLinkRepository_Save_Call{Call: _e.mock.On("Save", ctx, id, originalURL)}
+}
+
+func (_c *MockShortLinkRepository_Save_Call) Run(run func(ctx context.Context, id string, originalURL string)) *MockShortLinkRepository_Save_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
 func (_c *MockShortLinkRepository_Save_Call) Return(err error) *MockShortLinkRepository_Save_Call {
 	_c.Call.Return(err)
 	return _c
 }
 
-func (_c *MockShortLinkRepository_Save_Call) RunAndReturn(run func(id string, originalURL string) error) *MockShortLinkRepository_Save_Call {
+func (_c *MockShortLinkRepository_Save_Call) RunAndReturn(run func(ctx context.Context, id string, originalURL string) error) *MockShortLinkRepository_Save_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SaveBatch provides a mock function for the type MockShortLinkRepository
+func (_mock *MockShortLinkRepository) SaveBatch(ctx context.Context, links []ShortLink) error {
+	ret := _mock.Called(ctx, links)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SaveBatch")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []ShortLink) error); ok {
+		r0 = returnFunc(ctx, links)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockShortLinkRepository_SaveBatch_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SaveBatch'
+type MockShortLinkRepository_SaveBatch_Call struct {
+	*mock.Call
+}
+
+// SaveBatch is a helper method to define mock.On call
+//   - ctx context.Context
+//   - links []ShortLink
+func (_e *MockShortLinkRepository_Expecter) SaveBatch(ctx any, links any) *MockShortLinkRepository_SaveBatch_Call {
+	return &MockShortLinkRepository_SaveBatch_Call{Call: _e.mock.On("SaveBatch", ctx, links)}
+}
+
+func (_c *MockShortLinkRepository_SaveBatch_Call) Run(run func(ctx context.Context, links []ShortLink)) *MockShortLinkRepository_SaveBatch_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 []ShortLink
+		if args[1] != nil {
+			arg1 = args[1].([]ShortLink)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockShortLinkRepository_SaveBatch_Call) Return(err error) *MockShortLinkRepository_SaveBatch_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockShortLinkRepository_SaveBatch_Call) RunAndReturn(run func(ctx context.Context, links []ShortLink) error) *MockShortLinkRepository_SaveBatch_Call {
 	_c.Call.Return(run)
 	return _c
 }

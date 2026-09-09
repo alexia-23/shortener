@@ -2,6 +2,7 @@ package repository
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -21,13 +22,23 @@ func TestShortLinkRepository_SaveAndGet(t *testing.T) {
 	repository, err := NewShortLinkRepository(fileStoragePath)
 	require.NoError(t, err)
 
+	ctx := context.Background()
+
 	id := "test-id"
 	originalURL := "https://example.com"
 
-	err = repository.Save(id, originalURL)
+	err = repository.Save(
+		ctx,
+		id,
+		originalURL,
+	)
 	require.NoError(t, err)
 
-	savedURL, found := repository.Get(id)
+	savedURL, found, err := repository.Get(
+		ctx,
+		id,
+	)
+	require.NoError(t, err)
 
 	assert.True(t, found)
 	assert.Equal(t, originalURL, savedURL)
@@ -42,7 +53,13 @@ func TestShortLinkRepository_GetUnknownID(t *testing.T) {
 	repository, err := NewShortLinkRepository(fileStoragePath)
 	require.NoError(t, err)
 
-	originalURL, found := repository.Get("unknown")
+	ctx := context.Background()
+
+	originalURL, found, err := repository.Get(
+		ctx,
+		"unknown",
+	)
+	require.NoError(t, err)
 
 	assert.False(t, found)
 	assert.Empty(t, originalURL)
@@ -57,12 +74,16 @@ func TestShortLinkRepository_SaveDifferentIDs(t *testing.T) {
 	repository, err := NewShortLinkRepository(fileStoragePath)
 	require.NoError(t, err)
 
+	ctx := context.Background()
+
 	firstErr := repository.Save(
+		ctx,
 		"first-id",
 		"https://example.com/first",
 	)
 
 	secondErr := repository.Save(
+		ctx,
 		"second-id",
 		"https://example.com/second",
 	)
@@ -80,14 +101,18 @@ func TestShortLinkRepository_SaveCollision(t *testing.T) {
 	repository, err := NewShortLinkRepository(fileStoragePath)
 	require.NoError(t, err)
 
+	ctx := context.Background()
+
 	id := "same-id"
 
 	firstErr := repository.Save(
+		ctx,
 		id,
 		"https://example.com/first",
 	)
 
 	secondErr := repository.Save(
+		ctx,
 		id,
 		"https://example.com/second",
 	)
@@ -99,7 +124,11 @@ func TestShortLinkRepository_SaveCollision(t *testing.T) {
 		service.ErrShortLinkIDExists,
 	)
 
-	savedURL, found := repository.Get(id)
+	savedURL, found, err := repository.Get(
+		ctx,
+		id,
+	)
+	require.NoError(t, err)
 
 	require.True(t, found)
 	assert.Equal(
@@ -118,10 +147,16 @@ func TestShortLinkRepository_SaveToFile(t *testing.T) {
 	repository, err := NewShortLinkRepository(fileStoragePath)
 	require.NoError(t, err)
 
+	ctx := context.Background()
+
 	id := "test-id"
 	originalURL := "https://example.com"
 
-	err = repository.Save(id, originalURL)
+	err = repository.Save(
+		ctx,
+		id,
+		originalURL,
+	)
 	require.NoError(t, err)
 
 	file, err := os.Open(fileStoragePath)
@@ -155,13 +190,17 @@ func TestShortLinkRepository_AppendToFile(t *testing.T) {
 	repository, err := NewShortLinkRepository(fileStoragePath)
 	require.NoError(t, err)
 
+	ctx := context.Background()
+
 	err = repository.Save(
+		ctx,
 		"first-id",
 		"https://example.com/first",
 	)
 	require.NoError(t, err)
 
 	err = repository.Save(
+		ctx,
 		"second-id",
 		"https://example.com/second",
 	)
@@ -213,16 +252,26 @@ func TestShortLinkRepository_LoadFromFile(t *testing.T) {
 	firstRepository, err := NewShortLinkRepository(fileStoragePath)
 	require.NoError(t, err)
 
+	ctx := context.Background()
+
 	id := "test-id"
 	originalURL := "https://example.com"
 
-	err = firstRepository.Save(id, originalURL)
+	err = firstRepository.Save(
+		ctx,
+		id,
+		originalURL,
+	)
 	require.NoError(t, err)
 
 	secondRepository, err := NewShortLinkRepository(fileStoragePath)
 	require.NoError(t, err)
 
-	savedURL, found := secondRepository.Get(id)
+	savedURL, found, err := secondRepository.Get(
+		ctx,
+		id,
+	)
+	require.NoError(t, err)
 
 	require.True(t, found)
 	assert.Equal(t, originalURL, savedURL)
@@ -237,7 +286,10 @@ func TestShortLinkRepository_ContinuesUUIDAfterReload(t *testing.T) {
 	firstRepository, err := NewShortLinkRepository(fileStoragePath)
 	require.NoError(t, err)
 
+	ctx := context.Background()
+
 	err = firstRepository.Save(
+		ctx,
 		"first-id",
 		"https://example.com/first",
 	)
@@ -247,6 +299,7 @@ func TestShortLinkRepository_ContinuesUUIDAfterReload(t *testing.T) {
 	require.NoError(t, err)
 
 	err = secondRepository.Save(
+		ctx,
 		"second-id",
 		"https://example.com/second",
 	)
@@ -274,4 +327,151 @@ func TestShortLinkRepository_ContinuesUUIDAfterReload(t *testing.T) {
 
 	assert.Equal(t, "1", records[0].UUID)
 	assert.Equal(t, "2", records[1].UUID)
+}
+
+func TestMemoryRepository_SaveBatch(t *testing.T) {
+	repository := NewMemoryRepository()
+	ctx := context.Background()
+
+	links := []service.ShortLink{
+		{
+			ID:          "first-id",
+			OriginalURL: "https://example.com/first",
+		},
+		{
+			ID:          "second-id",
+			OriginalURL: "https://example.com/second",
+		},
+	}
+
+	require.NoError(t, repository.SaveBatch(ctx, links))
+
+	for _, link := range links {
+		originalURL, found, err := repository.Get(ctx, link.ID)
+		require.NoError(t, err)
+		require.True(t, found)
+		assert.Equal(t, link.OriginalURL, originalURL)
+	}
+}
+
+func TestMemoryRepository_SaveBatch_IsAtomicOnCollision(t *testing.T) {
+	repository := NewMemoryRepository()
+	ctx := context.Background()
+
+	require.NoError(
+		t,
+		repository.Save(
+			ctx,
+			"existing-id",
+			"https://example.com/existing",
+		),
+	)
+
+	err := repository.SaveBatch(
+		ctx,
+		[]service.ShortLink{
+			{
+				ID:          "new-id",
+				OriginalURL: "https://example.com/new",
+			},
+			{
+				ID:          "existing-id",
+				OriginalURL: "https://example.com/replacement",
+			},
+		},
+	)
+
+	require.ErrorIs(t, err, service.ErrShortLinkIDExists)
+
+	_, found, getErr := repository.Get(ctx, "new-id")
+	require.NoError(t, getErr)
+	assert.False(t, found)
+
+	originalURL, found, getErr := repository.Get(ctx, "existing-id")
+	require.NoError(t, getErr)
+	require.True(t, found)
+	assert.Equal(t, "https://example.com/existing", originalURL)
+}
+
+func TestFileRepository_SaveBatchAndReload(t *testing.T) {
+	fileStoragePath := filepath.Join(
+		t.TempDir(),
+		"storage.json",
+	)
+	ctx := context.Background()
+
+	firstRepository, err := NewFileRepository(fileStoragePath)
+	require.NoError(t, err)
+
+	links := []service.ShortLink{
+		{
+			ID:          "first-id",
+			OriginalURL: "https://example.com/first",
+		},
+		{
+			ID:          "second-id",
+			OriginalURL: "https://example.com/second",
+		},
+	}
+
+	require.NoError(t, firstRepository.SaveBatch(ctx, links))
+
+	secondRepository, err := NewFileRepository(fileStoragePath)
+	require.NoError(t, err)
+
+	for _, link := range links {
+		originalURL, found, getErr := secondRepository.Get(
+			ctx,
+			link.ID,
+		)
+		require.NoError(t, getErr)
+		require.True(t, found)
+		assert.Equal(t, link.OriginalURL, originalURL)
+	}
+}
+
+func TestFileRepository_SaveBatch_DuplicateDoesNotWrite(t *testing.T) {
+	fileStoragePath := filepath.Join(
+		t.TempDir(),
+		"storage.json",
+	)
+	ctx := context.Background()
+
+	repository, err := NewFileRepository(fileStoragePath)
+	require.NoError(t, err)
+
+	require.NoError(
+		t,
+		repository.Save(
+			ctx,
+			"existing-id",
+			"https://example.com/existing",
+		),
+	)
+
+	fileInfoBefore, err := os.Stat(fileStoragePath)
+	require.NoError(t, err)
+
+	err = repository.SaveBatch(
+		ctx,
+		[]service.ShortLink{
+			{
+				ID:          "new-id",
+				OriginalURL: "https://example.com/new",
+			},
+			{
+				ID:          "existing-id",
+				OriginalURL: "https://example.com/replacement",
+			},
+		},
+	)
+	require.ErrorIs(t, err, service.ErrShortLinkIDExists)
+
+	fileInfoAfter, err := os.Stat(fileStoragePath)
+	require.NoError(t, err)
+	assert.Equal(t, fileInfoBefore.Size(), fileInfoAfter.Size())
+
+	_, found, getErr := repository.Get(ctx, "new-id")
+	require.NoError(t, getErr)
+	assert.False(t, found)
 }

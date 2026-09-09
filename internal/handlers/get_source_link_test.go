@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestHandler_handleGetSourceLink(t *testing.T) {
@@ -40,8 +41,15 @@ func TestHandler_handleGetSourceLink(t *testing.T) {
 			service := NewMockShortLinkService(t)
 
 			service.EXPECT().
-				GetSourceLink(test.id).
-				Return(test.wantOriginalURL, test.wantFound).
+				GetSourceLink(
+					mock.Anything,
+					test.id,
+				).
+				Return(
+					test.wantOriginalURL,
+					test.wantFound,
+					nil,
+				).
 				Once()
 
 			router := NewRouter(service, "http://localhost:8080")

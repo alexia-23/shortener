@@ -2,13 +2,16 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	shortlinkservice "github.com/alexia-23/shortener/internal/service"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -127,7 +130,10 @@ func TestHandler_handleCreateShortLink(t *testing.T) {
 
 			if test.wantSavedURL != "" {
 				service.EXPECT().
-					CreateShortLink(test.wantSavedURL).
+					CreateShortLink(
+						mock.Anything,
+						test.wantSavedURL,
+					).
 					Return("MQ", nil).
 					Once()
 			}
@@ -173,4 +179,49 @@ func TestHandler_handleCreateShortLink(t *testing.T) {
 			)
 		})
 	}
+}
+
+func TestHandler_handleCreateShortLink_OriginalURLExists(t *testing.T) {
+	mockService := NewMockShortLinkService(t)
+
+	mockService.EXPECT().
+		CreateShortLink(
+			mock.Anything,
+			"https://example.com",
+		).
+		Return(
+			"",
+			fmt.Errorf(
+				"save short link: %w",
+				&shortlinkservice.OriginalURLExistsError{
+					ID: "existing-id",
+				},
+			),
+		).
+		Once()
+
+	router := NewRouter(mockService, "http://localhost:8080")
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/",
+		strings.NewReader("https://example.com"),
+	)
+	request.Header.Set("Content-Type", "text/plain")
+
+	recorder := httptest.NewRecorder()
+
+	router.ServeHTTP(recorder, request)
+
+	assert.Equal(t, http.StatusConflict, recorder.Code)
+	assert.Equal(
+		t,
+		"text/plain",
+		recorder.Header().Get("Content-Type"),
+	)
+	assert.Equal(
+		t,
+		"http://localhost:8080/existing-id",
+		recorder.Body.String(),
+	)
 }

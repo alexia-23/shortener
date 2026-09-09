@@ -1,6 +1,20 @@
 package handlers
 
+import "context"
+
 type ShortLinkService interface {
-	CreateShortLink(originalURL string) (string, error)
-	GetSourceLink(id string) (string, bool)
+	CreateShortLink(
+		ctx context.Context,
+		originalURL string,
+	) (string, error)
+
+	CreateShortLinksBatch(
+		ctx context.Context,
+		originalURLs []string,
+	) ([]string, error)
+
+	GetSourceLink(
+		ctx context.Context,
+		id string,
+	) (string, bool, error)
 }

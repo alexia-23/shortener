@@ -1,0 +1,1 @@
+DROP INDEX short_urls_original_url_idx;

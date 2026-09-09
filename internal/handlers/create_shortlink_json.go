@@ -2,9 +2,11 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/url"
-	"strings"
+
+	"github.com/alexia-23/shortener/internal/service"
 )
 
 type createShortLinkRequest struct {
@@ -32,23 +34,28 @@ func (handler *Handler) handleCreateShortLinkJSON(
 		return
 	}
 
-	originalURL := strings.TrimSpace(request.URL)
-
-	if originalURL == "" {
+	originalURL, valid := validateOriginalURL(request.URL)
+	if !valid {
 		writeBadRequest(w)
 		return
 	}
 
-	parsedURL, err := url.ParseRequestURI(originalURL)
-	if err != nil || parsedURL.Scheme == "" || parsedURL.Host == "" {
-		writeBadRequest(w)
-		return
-	}
+	id, err := handler.service.CreateShortLink(
+		r.Context(),
+		originalURL,
+	)
+	statusCode := http.StatusCreated
 
-	id, err := handler.service.CreateShortLink(originalURL)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		var originalURLExistsError *service.OriginalURLExistsError
+
+		if !errors.As(err, &originalURLExistsError) {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		id = originalURLExistsError.ID
+		statusCode = http.StatusConflict
 	}
 
 	shortURL, err := url.JoinPath(handler.baseURL, id)
@@ -62,7 +69,7 @@ func (handler *Handler) handleCreateShortLinkJSON(
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(statusCode)
 
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		return
