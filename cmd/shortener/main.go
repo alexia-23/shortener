@@ -1,7 +1,10 @@
 package main
 
 import (
+	"crypto/rand"
 	"database/sql"
+	"encoding/base64"
+	"fmt"
 	"net/http"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -16,7 +19,7 @@ import (
 	"github.com/alexia-23/shortener/internal/service"
 )
 
-const authSecretKey = "shortener-auth-secret-key"
+const authSecretKeySize = 32
 
 func main() {
 	logger, err := zap.NewDevelopment()
@@ -90,6 +93,18 @@ func main() {
 		shortLinkRepository,
 	)
 
+	authSecretKey := cfg.AuthSecretKey
+	if authSecretKey == "" {
+		authSecretKey, err = generateAuthSecretKey()
+		if err != nil {
+			sugar.Fatalw(
+				"failed to generate authentication secret key",
+				"error", err,
+			)
+			return
+		}
+	}
+
 	cookieSigner := auth.NewCookieSigner(
 		authSecretKey,
 	)
@@ -121,4 +136,19 @@ func main() {
 			"error", err,
 		)
 	}
+}
+
+func generateAuthSecretKey() (string, error) {
+	randomBytes := make([]byte, authSecretKeySize)
+
+	if _, err := rand.Read(randomBytes); err != nil {
+		return "", fmt.Errorf(
+			"generate random authentication secret: %w",
+			err,
+		)
+	}
+
+	return base64.RawURLEncoding.EncodeToString(
+		randomBytes,
+	), nil
 }
