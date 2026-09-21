@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/alexia-23/shortener/internal/auth"
 	"github.com/alexia-23/shortener/internal/service"
 )
 
@@ -24,6 +25,7 @@ type storedURL struct {
 	UUID        string `json:"uuid"`
 	ShortURL    string `json:"short_url"`
 	OriginalURL string `json:"original_url"`
+	UserID      string `json:"user_id,omitempty"`
 }
 
 func NewFileRepository(
@@ -78,12 +80,15 @@ func (repository *FileRepository) SaveBatch(
 		return err
 	}
 
+	userID, _ := auth.UserIDFromContext(ctx)
+
 	records := make([]storedURL, 0, len(links))
 	for index, link := range links {
 		records = append(records, storedURL{
 			UUID:        strconv.Itoa(repository.nextUUID + index),
 			ShortURL:    link.ID,
 			OriginalURL: link.OriginalURL,
+			UserID:      userID,
 		})
 	}
 
@@ -107,6 +112,19 @@ func (repository *FileRepository) Get(
 	return repository.memory.Get(
 		ctx,
 		id,
+	)
+}
+
+func (repository *FileRepository) GetByUserID(
+	ctx context.Context,
+	userID string,
+) ([]service.ShortLink, error) {
+	repository.mutex.RLock()
+	defer repository.mutex.RUnlock()
+
+	return repository.memory.GetByUserID(
+		ctx,
+		userID,
 	)
 }
 
@@ -207,8 +225,13 @@ func (repository *FileRepository) loadFromFile() (err error) {
 			return fmt.Errorf("invalid UUID %q", record.UUID)
 		}
 
-		if err := repository.memory.Save(
+		ctx := auth.ContextWithUserID(
 			context.Background(),
+			record.UserID,
+		)
+
+		if err := repository.memory.Save(
+			ctx,
 			record.ShortURL,
 			record.OriginalURL,
 		); err != nil {

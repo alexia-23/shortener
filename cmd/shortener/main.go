@@ -1,12 +1,16 @@
 package main
 
 import (
+	"crypto/rand"
 	"database/sql"
+	"encoding/base64"
+	"fmt"
 	"net/http"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 
+	"github.com/alexia-23/shortener/internal/auth"
 	"github.com/alexia-23/shortener/internal/config"
 	database "github.com/alexia-23/shortener/internal/db"
 	"github.com/alexia-23/shortener/internal/handlers"
@@ -14,6 +18,8 @@ import (
 	"github.com/alexia-23/shortener/internal/repository"
 	"github.com/alexia-23/shortener/internal/service"
 )
+
+const authSecretKeySize = 32
 
 func main() {
 	logger, err := zap.NewDevelopment()
@@ -83,13 +89,32 @@ func main() {
 		shortLinkRepository = repository.NewMemoryRepository()
 	}
 
-	shortLinkService := service.NewShortLinkService(shortLinkRepository)
+	shortLinkService := service.NewShortLinkService(
+		shortLinkRepository,
+	)
+
+	authSecretKey := cfg.AuthSecretKey
+	if authSecretKey == "" {
+		authSecretKey, err = generateAuthSecretKey()
+		if err != nil {
+			sugar.Fatalw(
+				"failed to generate authentication secret key",
+				"error", err,
+			)
+			return
+		}
+	}
+
+	cookieSigner := auth.NewCookieSigner(
+		authSecretKey,
+	)
 
 	router := handlers.NewRouter(
 		shortLinkService,
 		cfg.BaseURL,
 		middleware.WithLogging(sugar),
 		middleware.WithGzip(sugar),
+		middleware.Authentication(cookieSigner),
 	)
 
 	router.Get(
@@ -102,10 +127,28 @@ func main() {
 		"address", cfg.ServerAddress,
 	)
 
-	if err := http.ListenAndServe(cfg.ServerAddress, router); err != nil {
+	if err := http.ListenAndServe(
+		cfg.ServerAddress,
+		router,
+	); err != nil {
 		sugar.Fatalw(
 			"server stopped",
 			"error", err,
 		)
 	}
+}
+
+func generateAuthSecretKey() (string, error) {
+	randomBytes := make([]byte, authSecretKeySize)
+
+	if _, err := rand.Read(randomBytes); err != nil {
+		return "", fmt.Errorf(
+			"generate random authentication secret: %w",
+			err,
+		)
+	}
+
+	return base64.RawURLEncoding.EncodeToString(
+		randomBytes,
+	), nil
 }

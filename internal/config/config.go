@@ -10,6 +10,7 @@ type Config struct {
 	BaseURL         string
 	FileStoragePath string
 	DatabaseDSN     string
+	AuthSecretKey   string
 }
 
 func NewConfig() *Config {
@@ -43,6 +44,13 @@ func NewConfig() *Config {
 		"database connection string",
 	)
 
+	flag.StringVar(
+		&cfg.AuthSecretKey,
+		"k",
+		"",
+		"authentication secret key",
+	)
+
 	flag.Parse()
 
 	if serverAddress, ok := os.LookupEnv("SERVER_ADDRESS"); ok {
@@ -59,6 +67,10 @@ func NewConfig() *Config {
 
 	if databaseDSN, ok := os.LookupEnv("DATABASE_DSN"); ok {
 		cfg.DatabaseDSN = databaseDSN
+	}
+
+	if authSecretKey, ok := os.LookupEnv("AUTH_SECRET_KEY"); ok {
+		cfg.AuthSecretKey = authSecretKey
 	}
 
 	return cfg
