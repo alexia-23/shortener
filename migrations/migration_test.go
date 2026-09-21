@@ -64,3 +64,28 @@ func TestOriginalURLUniqueIndexMigration(t *testing.T) {
 		strings.Contains(migrationSQL, "original_url"),
 	)
 }
+
+func TestIsDeletedMigration(t *testing.T) {
+	migration, err := fs.ReadFile(
+		migrationFiles,
+		"000004_add_is_deleted.up.sql",
+	)
+	require.NoError(t, err)
+
+	migrationSQL := string(migration)
+
+	require.True(
+		t,
+		strings.Contains(migrationSQL, "is_deleted"),
+	)
+
+	require.True(
+		t,
+		strings.Contains(migrationSQL, "BOOLEAN"),
+	)
+
+	require.True(
+		t,
+		strings.Contains(migrationSQL, "DEFAULT FALSE"),
+	)
+}

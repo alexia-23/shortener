@@ -1,0 +1,2 @@
+ALTER TABLE short_urls
+    ADD COLUMN is_deleted BOOLEAN NOT NULL DEFAULT FALSE;

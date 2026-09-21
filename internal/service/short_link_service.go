@@ -7,14 +7,22 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"sync"
+	"time"
 )
 
-const maxGenerateAttempts = 10
+const (
+	maxGenerateAttempts = 10
+	deleteBatchSize     = 100
+	deleteFlushInterval = 10 * time.Millisecond
+	deleteStreamBuffer  = 64
+)
 
 var (
 	ErrGenerateUniqueID  = errors.New("failed to generate unique short link ID")
 	ErrShortLinkIDExists = errors.New("short link ID already exists")
 	ErrOriginalURLExists = errors.New("original URL already exists")
+	ErrShortLinkDeleted  = errors.New("short link is deleted")
 )
 
 type OriginalURLExistsError struct {
@@ -50,6 +58,13 @@ type ShortLinkRepository interface {
 	) (string, bool, error)
 }
 
+type DeleteShortLinkRepository interface {
+	DeleteBatch(
+		ctx context.Context,
+		links []DeleteShortLink,
+	) error
+}
+
 type UserLinksRepository interface {
 	GetByUserID(
 		ctx context.Context,
@@ -63,16 +78,34 @@ type ShortLink struct {
 	UserID      string
 }
 
+type DeleteShortLink struct {
+	ID     string
+	UserID string
+}
+
 type ShortLinkService struct {
-	repository ShortLinkRepository
+	repository       ShortLinkRepository
+	deleteRepository DeleteShortLinkRepository
+	deleteStreams    chan (<-chan DeleteShortLink)
+	deleteOnce       sync.Once
 }
 
 func NewShortLinkService(
 	repository ShortLinkRepository,
 ) *ShortLinkService {
-	return &ShortLinkService{
+	service := &ShortLinkService{
 		repository: repository,
+		deleteStreams: make(
+			chan (<-chan DeleteShortLink),
+			deleteStreamBuffer,
+		),
 	}
+
+	if deleteRepository, ok := repository.(DeleteShortLinkRepository); ok {
+		service.deleteRepository = deleteRepository
+	}
+
+	return service
 }
 
 func (service *ShortLinkService) CreateShortLink(
@@ -131,17 +164,24 @@ func (service *ShortLinkService) CreateShortLinksBatch(
 			}
 
 			generatedIDs[id] = struct{}{}
-			links = append(links, ShortLink{
-				ID:          id,
-				OriginalURL: originalURL,
-			})
+
+			links = append(
+				links,
+				ShortLink{
+					ID:          id,
+					OriginalURL: originalURL,
+				},
+			)
 		}
 
 		if links == nil {
 			continue
 		}
 
-		err := service.repository.SaveBatch(ctx, links)
+		err := service.repository.SaveBatch(
+			ctx,
+			links,
+		)
 		if err == nil {
 			ids := make([]string, len(links))
 
@@ -205,6 +245,142 @@ func (service *ShortLinkService) GetUserLinks(
 	)
 
 	return links, nil
+}
+
+func (service *ShortLinkService) DeleteUserLinks(
+	userID string,
+	ids []string,
+) {
+	if userID == "" || len(ids) == 0 {
+		return
+	}
+
+	if service.deleteRepository == nil {
+		return
+	}
+
+	service.deleteOnce.Do(func() {
+		merged := fanIn(service.deleteStreams)
+
+		go service.processDeleteBatches(merged)
+	})
+
+	stream := make(
+		chan DeleteShortLink,
+		len(ids),
+	)
+
+	seen := make(
+		map[string]struct{},
+		len(ids),
+	)
+
+	for _, id := range ids {
+		if id == "" {
+			continue
+		}
+
+		if _, exists := seen[id]; exists {
+			continue
+		}
+
+		seen[id] = struct{}{}
+
+		stream <- DeleteShortLink{
+			ID:     id,
+			UserID: userID,
+		}
+	}
+
+	close(stream)
+
+	if len(seen) == 0 {
+		return
+	}
+
+	service.deleteStreams <- stream
+}
+
+func fanIn(
+	streams <-chan (<-chan DeleteShortLink),
+) <-chan DeleteShortLink {
+	result := make(
+		chan DeleteShortLink,
+		deleteBatchSize,
+	)
+
+	go func() {
+		var wg sync.WaitGroup
+
+		for stream := range streams {
+			stream := stream
+
+			wg.Add(1)
+
+			go func() {
+				defer wg.Done()
+
+				for link := range stream {
+					result <- link
+				}
+			}()
+		}
+
+		wg.Wait()
+		close(result)
+	}()
+
+	return result
+}
+
+func (service *ShortLinkService) processDeleteBatches(
+	input <-chan DeleteShortLink,
+) {
+	ticker := time.NewTicker(
+		deleteFlushInterval,
+	)
+	defer ticker.Stop()
+
+	batch := make(
+		[]DeleteShortLink,
+		0,
+		deleteBatchSize,
+	)
+
+	flush := func() {
+		if len(batch) == 0 {
+			return
+		}
+
+		_ = service.deleteRepository.DeleteBatch(
+			context.Background(),
+			batch,
+		)
+
+		batch = batch[:0]
+	}
+
+	for {
+		select {
+		case link, ok := <-input:
+			if !ok {
+				flush()
+				return
+			}
+
+			batch = append(
+				batch,
+				link,
+			)
+
+			if len(batch) >= deleteBatchSize {
+				flush()
+			}
+
+		case <-ticker.C:
+			flush()
+		}
+	}
 }
 
 func generateID() (string, error) {

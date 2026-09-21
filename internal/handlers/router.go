@@ -28,7 +28,15 @@ func NewRouter(
 		handler.handleGetUserURLs,
 	)
 
-	router.Get("/{id}", handler.handleGetSourceLink)
+	router.Delete(
+		"/api/user/urls",
+		handler.handleDeleteUserURLs,
+	)
+
+	router.Get(
+		"/{id}",
+		handler.handleGetSourceLink,
+	)
 
 	router.NotFound(badRequestHandler)
 	router.MethodNotAllowed(badRequestHandler)
@@ -36,7 +44,10 @@ func NewRouter(
 	return router
 }
 
-func badRequestHandler(w http.ResponseWriter, r *http.Request) {
+func badRequestHandler(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	writeBadRequest(w)
 }
 

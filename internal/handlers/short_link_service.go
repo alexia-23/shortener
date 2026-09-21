@@ -23,6 +23,13 @@ type ShortLinkService interface {
 	) (string, bool, error)
 }
 
+type DeleteUserLinksService interface {
+	DeleteUserLinks(
+		userID string,
+		ids []string,
+	)
+}
+
 type UserLinksService interface {
 	GetUserLinks(
 		ctx context.Context,

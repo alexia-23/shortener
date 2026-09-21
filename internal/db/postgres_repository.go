@@ -331,21 +331,78 @@ func (repository *PostgresRepository) SaveBatch(
 	return nil
 }
 
+func (repository *PostgresRepository) DeleteBatch(
+	ctx context.Context,
+	links []service.DeleteShortLink,
+) error {
+	if len(links) == 0 {
+		return nil
+	}
+
+	values := make([]string, 0, len(links))
+	args := make([]any, 0, len(links)*2)
+
+	for index, link := range links {
+		firstPlaceholder := index*2 + 1
+		secondPlaceholder := firstPlaceholder + 1
+
+		values = append(
+			values,
+			fmt.Sprintf(
+				"($%d, $%d)",
+				firstPlaceholder,
+				secondPlaceholder,
+			),
+		)
+
+		args = append(
+			args,
+			link.UserID,
+			link.ID,
+		)
+	}
+
+	query := fmt.Sprintf(
+		`
+			UPDATE short_urls AS urls
+			SET is_deleted = TRUE
+			FROM (VALUES %s) AS deleted(user_id, short_url)
+			WHERE urls.user_id = deleted.user_id
+				AND urls.short_url = deleted.short_url
+		`,
+		strings.Join(values, ", "),
+	)
+
+	if _, err := repository.db.ExecContext(
+		ctx,
+		query,
+		args...,
+	); err != nil {
+		return fmt.Errorf(
+			"mark short links as deleted: %w",
+			err,
+		)
+	}
+
+	return nil
+}
+
 func (repository *PostgresRepository) Get(
 	ctx context.Context,
 	id string,
 ) (string, bool, error) {
 	var originalURL string
+	var deleted bool
 
 	err := repository.db.QueryRowContext(
 		ctx,
 		`
-			SELECT original_url
+			SELECT original_url, is_deleted
 			FROM short_urls
 			WHERE short_url = $1
 		`,
 		id,
-	).Scan(&originalURL)
+	).Scan(&originalURL, &deleted)
 
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", false, nil
@@ -356,6 +413,10 @@ func (repository *PostgresRepository) Get(
 			"get short link: %w",
 			err,
 		)
+	}
+
+	if deleted {
+		return "", true, service.ErrShortLinkDeleted
 	}
 
 	return originalURL, true, nil
