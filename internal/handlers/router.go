@@ -22,6 +22,12 @@ func NewRouter(
 		"/api/shorten/batch",
 		handler.handleCreateShortLinksBatch,
 	)
+
+	router.Get(
+		"/api/user/urls",
+		handler.handleGetUserURLs,
+	)
+
 	router.Get("/{id}", handler.handleGetSourceLink)
 
 	router.NotFound(badRequestHandler)

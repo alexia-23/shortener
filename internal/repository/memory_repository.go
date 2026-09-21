@@ -5,22 +5,25 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/alexia-23/shortener/internal/auth"
 	"github.com/alexia-23/shortener/internal/service"
 )
 
 type MemoryRepository struct {
-	links map[string]string
-	mutex sync.RWMutex
+	links  map[string]string
+	owners map[string]string
+	mutex  sync.RWMutex
 }
 
 func NewMemoryRepository() *MemoryRepository {
 	return &MemoryRepository{
-		links: make(map[string]string),
+		links:  make(map[string]string),
+		owners: make(map[string]string),
 	}
 }
 
 func (repository *MemoryRepository) Save(
-	_ context.Context,
+	ctx context.Context,
 	id string,
 	originalURL string,
 ) error {
@@ -35,13 +38,16 @@ func (repository *MemoryRepository) Save(
 		)
 	}
 
+	userID, _ := auth.UserIDFromContext(ctx)
+
 	repository.links[id] = originalURL
+	repository.owners[id] = userID
 
 	return nil
 }
 
 func (repository *MemoryRepository) SaveBatch(
-	_ context.Context,
+	ctx context.Context,
 	links []service.ShortLink,
 ) error {
 	repository.mutex.Lock()
@@ -69,8 +75,11 @@ func (repository *MemoryRepository) SaveBatch(
 		batchIDs[link.ID] = struct{}{}
 	}
 
+	userID, _ := auth.UserIDFromContext(ctx)
+
 	for _, link := range links {
 		repository.links[link.ID] = link.OriginalURL
+		repository.owners[link.ID] = userID
 	}
 
 	return nil
@@ -88,6 +97,33 @@ func (repository *MemoryRepository) Get(
 	return originalURL, found, nil
 }
 
+func (repository *MemoryRepository) GetByUserID(
+	_ context.Context,
+	userID string,
+) ([]service.ShortLink, error) {
+	repository.mutex.RLock()
+	defer repository.mutex.RUnlock()
+
+	links := make([]service.ShortLink, 0)
+
+	for id, originalURL := range repository.links {
+		if repository.owners[id] != userID {
+			continue
+		}
+
+		links = append(
+			links,
+			service.ShortLink{
+				ID:          id,
+				OriginalURL: originalURL,
+				UserID:      userID,
+			},
+		)
+	}
+
+	return links, nil
+}
+
 func (repository *MemoryRepository) deleteBatch(
 	links []service.ShortLink,
 ) {
@@ -96,5 +132,6 @@ func (repository *MemoryRepository) deleteBatch(
 
 	for _, link := range links {
 		delete(repository.links, link.ID)
+		delete(repository.owners, link.ID)
 	}
 }

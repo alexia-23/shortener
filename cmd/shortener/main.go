@@ -7,6 +7,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 
+	"github.com/alexia-23/shortener/internal/auth"
 	"github.com/alexia-23/shortener/internal/config"
 	database "github.com/alexia-23/shortener/internal/db"
 	"github.com/alexia-23/shortener/internal/handlers"
@@ -14,6 +15,8 @@ import (
 	"github.com/alexia-23/shortener/internal/repository"
 	"github.com/alexia-23/shortener/internal/service"
 )
+
+const authSecretKey = "shortener-auth-secret-key"
 
 func main() {
 	logger, err := zap.NewDevelopment()
@@ -83,13 +86,20 @@ func main() {
 		shortLinkRepository = repository.NewMemoryRepository()
 	}
 
-	shortLinkService := service.NewShortLinkService(shortLinkRepository)
+	shortLinkService := service.NewShortLinkService(
+		shortLinkRepository,
+	)
+
+	cookieSigner := auth.NewCookieSigner(
+		authSecretKey,
+	)
 
 	router := handlers.NewRouter(
 		shortLinkService,
 		cfg.BaseURL,
 		middleware.WithLogging(sugar),
 		middleware.WithGzip(sugar),
+		middleware.Authentication(cookieSigner),
 	)
 
 	router.Get(
@@ -102,7 +112,10 @@ func main() {
 		"address", cfg.ServerAddress,
 	)
 
-	if err := http.ListenAndServe(cfg.ServerAddress, router); err != nil {
+	if err := http.ListenAndServe(
+		cfg.ServerAddress,
+		router,
+	); err != nil {
 		sugar.Fatalw(
 			"server stopped",
 			"error", err,

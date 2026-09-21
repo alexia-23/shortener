@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"sort"
 )
 
 const maxGenerateAttempts = 10
@@ -49,9 +50,17 @@ type ShortLinkRepository interface {
 	) (string, bool, error)
 }
 
+type UserLinksRepository interface {
+	GetByUserID(
+		ctx context.Context,
+		userID string,
+	) ([]ShortLink, error)
+}
+
 type ShortLink struct {
 	ID          string
 	OriginalURL string
+	UserID      string
 }
 
 type ShortLinkService struct {
@@ -164,6 +173,38 @@ func (service *ShortLinkService) GetSourceLink(
 		ctx,
 		id,
 	)
+}
+
+func (service *ShortLinkService) GetUserLinks(
+	ctx context.Context,
+	userID string,
+) ([]ShortLink, error) {
+	repository, ok := service.repository.(UserLinksRepository)
+	if !ok {
+		return nil, errors.New(
+			"repository does not support user links",
+		)
+	}
+
+	links, err := repository.GetByUserID(
+		ctx,
+		userID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"get user links: %w",
+			err,
+		)
+	}
+
+	sort.Slice(
+		links,
+		func(i, j int) bool {
+			return links[i].ID < links[j].ID
+		},
+	)
+
+	return links, nil
 }
 
 func generateID() (string, error) {

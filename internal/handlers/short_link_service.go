@@ -1,6 +1,10 @@
 package handlers
 
-import "context"
+import (
+	"context"
+
+	"github.com/alexia-23/shortener/internal/service"
+)
 
 type ShortLinkService interface {
 	CreateShortLink(
@@ -17,4 +21,11 @@ type ShortLinkService interface {
 		ctx context.Context,
 		id string,
 	) (string, bool, error)
+}
+
+type UserLinksService interface {
+	GetUserLinks(
+		ctx context.Context,
+		userID string,
+	) ([]service.ShortLink, error)
 }
