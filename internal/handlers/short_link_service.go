@@ -1,6 +1,10 @@
 package handlers
 
-import "context"
+import (
+	"context"
+
+	"github.com/alexia-23/shortener/internal/service"
+)
 
 type ShortLinkService interface {
 	CreateShortLink(
@@ -17,4 +21,25 @@ type ShortLinkService interface {
 		ctx context.Context,
 		id string,
 	) (string, bool, error)
+}
+
+type DeleteUserLinksService interface {
+	DeleteUserLinks(
+		userID string,
+		ids []string,
+	)
+}
+
+type UserLinksService interface {
+	GetUserLinks(
+		ctx context.Context,
+		userID string,
+	) ([]service.ShortLink, error)
+}
+
+// URLService contains every capability required by the HTTP router.
+type URLService interface {
+	ShortLinkService
+	UserLinksService
+	DeleteUserLinksService
 }

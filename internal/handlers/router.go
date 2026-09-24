@@ -7,7 +7,7 @@ import (
 )
 
 func NewRouter(
-	service ShortLinkService,
+	service URLService,
 	baseURL string,
 	middlewares ...func(http.Handler) http.Handler,
 ) *chi.Mux {
@@ -22,7 +22,21 @@ func NewRouter(
 		"/api/shorten/batch",
 		handler.handleCreateShortLinksBatch,
 	)
-	router.Get("/{id}", handler.handleGetSourceLink)
+
+	router.Get(
+		"/api/user/urls",
+		handler.handleGetUserURLs,
+	)
+
+	router.Delete(
+		"/api/user/urls",
+		handler.handleDeleteUserURLs,
+	)
+
+	router.Get(
+		"/{id}",
+		handler.handleGetSourceLink,
+	)
 
 	router.NotFound(badRequestHandler)
 	router.MethodNotAllowed(badRequestHandler)
@@ -30,7 +44,10 @@ func NewRouter(
 	return router
 }
 
-func badRequestHandler(w http.ResponseWriter, r *http.Request) {
+func badRequestHandler(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	writeBadRequest(w)
 }
 

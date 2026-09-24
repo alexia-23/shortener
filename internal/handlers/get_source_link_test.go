@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/alexia-23/shortener/internal/service"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -15,6 +16,7 @@ func TestHandler_handleGetSourceLink(t *testing.T) {
 		id              string
 		wantOriginalURL string
 		wantFound       bool
+		serviceErr      error
 		wantStatusCode  int
 		wantLocation    string
 	}{
@@ -34,6 +36,15 @@ func TestHandler_handleGetSourceLink(t *testing.T) {
 			wantStatusCode:  http.StatusBadRequest,
 			wantLocation:    "",
 		},
+		{
+			name:            "link is deleted",
+			id:              "deleted",
+			wantOriginalURL: "",
+			wantFound:       true,
+			serviceErr:      service.ErrShortLinkDeleted,
+			wantStatusCode:  http.StatusGone,
+			wantLocation:    "",
+		},
 	}
 
 	for _, test := range tests {
@@ -48,11 +59,14 @@ func TestHandler_handleGetSourceLink(t *testing.T) {
 				Return(
 					test.wantOriginalURL,
 					test.wantFound,
-					nil,
+					test.serviceErr,
 				).
 				Once()
 
-			router := NewRouter(service, "http://localhost:8080")
+			router := newCoreTestRouter(
+				service,
+				"http://localhost:8080",
+			)
 
 			request := httptest.NewRequest(
 				http.MethodGet,
@@ -62,7 +76,10 @@ func TestHandler_handleGetSourceLink(t *testing.T) {
 
 			recorder := httptest.NewRecorder()
 
-			router.ServeHTTP(recorder, request)
+			router.ServeHTTP(
+				recorder,
+				request,
+			)
 
 			response := recorder.Result()
 			defer response.Body.Close()

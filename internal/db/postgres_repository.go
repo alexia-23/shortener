@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/alexia-23/shortener/internal/auth"
 	"github.com/alexia-23/shortener/internal/service"
 	"github.com/alexia-23/shortener/migrations"
 	"github.com/jackc/pgerrcode"
@@ -43,18 +44,40 @@ func (repository *PostgresRepository) Save(
 	id string,
 	originalURL string,
 ) error {
-	_, err := repository.db.ExecContext(
-		ctx,
-		`
-			INSERT INTO short_urls (
-				short_url,
-				original_url
-			)
-			VALUES ($1, $2)
-		`,
-		id,
-		originalURL,
-	)
+	userID, hasUserID := auth.UserIDFromContext(ctx)
+
+	var err error
+
+	if hasUserID {
+		_, err = repository.db.ExecContext(
+			ctx,
+			`
+				INSERT INTO short_urls (
+					short_url,
+					original_url,
+					user_id
+				)
+				VALUES ($1, $2, $3)
+			`,
+			id,
+			originalURL,
+			userID,
+		)
+	} else {
+		_, err = repository.db.ExecContext(
+			ctx,
+			`
+				INSERT INTO short_urls (
+					short_url,
+					original_url
+				)
+				VALUES ($1, $2)
+			`,
+			id,
+			originalURL,
+		)
+	}
+
 	if err == nil {
 		return nil
 	}
@@ -157,42 +180,94 @@ func (repository *PostgresRepository) SaveBatch(
 		uniqueLinks = append(uniqueLinks, link)
 	}
 
+	userID, hasUserID := auth.UserIDFromContext(ctx)
+
 	values := make([]string, 0, len(uniqueLinks))
-	args := make([]any, 0, len(uniqueLinks)*2)
 
-	for index, link := range uniqueLinks {
-		firstPlaceholder := index*2 + 1
-		secondPlaceholder := firstPlaceholder + 1
-
-		values = append(
-			values,
-			fmt.Sprintf(
-				"($%d, $%d)",
-				firstPlaceholder,
-				secondPlaceholder,
-			),
-		)
-
-		args = append(
-			args,
-			link.ID,
-			link.OriginalURL,
-		)
+	argsPerLink := 2
+	if hasUserID {
+		argsPerLink = 3
 	}
 
-	query := fmt.Sprintf(
-		`
-			INSERT INTO short_urls (
-				short_url,
-				original_url
+	args := make([]any, 0, len(uniqueLinks)*argsPerLink)
+
+	if hasUserID {
+		for index, link := range uniqueLinks {
+			firstPlaceholder := index*3 + 1
+			secondPlaceholder := firstPlaceholder + 1
+			thirdPlaceholder := firstPlaceholder + 2
+
+			values = append(
+				values,
+				fmt.Sprintf(
+					"($%d, $%d, $%d)",
+					firstPlaceholder,
+					secondPlaceholder,
+					thirdPlaceholder,
+				),
 			)
-			VALUES %s
-			ON CONFLICT (original_url)
-			DO UPDATE SET original_url = EXCLUDED.original_url
-			RETURNING short_url, original_url
-		`,
-		strings.Join(values, ", "),
-	)
+
+			args = append(
+				args,
+				link.ID,
+				link.OriginalURL,
+				userID,
+			)
+		}
+	} else {
+		for index, link := range uniqueLinks {
+			firstPlaceholder := index*2 + 1
+			secondPlaceholder := firstPlaceholder + 1
+
+			values = append(
+				values,
+				fmt.Sprintf(
+					"($%d, $%d)",
+					firstPlaceholder,
+					secondPlaceholder,
+				),
+			)
+
+			args = append(
+				args,
+				link.ID,
+				link.OriginalURL,
+			)
+		}
+	}
+
+	var query string
+
+	if hasUserID {
+		query = fmt.Sprintf(
+			`
+				INSERT INTO short_urls (
+					short_url,
+					original_url,
+					user_id
+				)
+				VALUES %s
+				ON CONFLICT (original_url)
+				DO UPDATE SET original_url = EXCLUDED.original_url
+				RETURNING short_url, original_url
+			`,
+			strings.Join(values, ", "),
+		)
+	} else {
+		query = fmt.Sprintf(
+			`
+				INSERT INTO short_urls (
+					short_url,
+					original_url
+				)
+				VALUES %s
+				ON CONFLICT (original_url)
+				DO UPDATE SET original_url = EXCLUDED.original_url
+				RETURNING short_url, original_url
+			`,
+			strings.Join(values, ", "),
+		)
+	}
 
 	rows, err := repository.db.QueryContext(
 		ctx,
@@ -258,21 +333,78 @@ func (repository *PostgresRepository) SaveBatch(
 	return nil
 }
 
+func (repository *PostgresRepository) DeleteBatch(
+	ctx context.Context,
+	links []service.DeleteShortLink,
+) error {
+	if len(links) == 0 {
+		return nil
+	}
+
+	values := make([]string, 0, len(links))
+	args := make([]any, 0, len(links)*2)
+
+	for index, link := range links {
+		firstPlaceholder := index*2 + 1
+		secondPlaceholder := firstPlaceholder + 1
+
+		values = append(
+			values,
+			fmt.Sprintf(
+				"($%d, $%d)",
+				firstPlaceholder,
+				secondPlaceholder,
+			),
+		)
+
+		args = append(
+			args,
+			link.UserID,
+			link.ID,
+		)
+	}
+
+	query := fmt.Sprintf(
+		`
+			UPDATE short_urls AS urls
+			SET is_deleted = TRUE
+			FROM (VALUES %s) AS deleted(user_id, short_url)
+			WHERE urls.user_id = deleted.user_id
+				AND urls.short_url = deleted.short_url
+		`,
+		strings.Join(values, ", "),
+	)
+
+	if _, err := repository.db.ExecContext(
+		ctx,
+		query,
+		args...,
+	); err != nil {
+		return fmt.Errorf(
+			"mark short links as deleted: %w",
+			err,
+		)
+	}
+
+	return nil
+}
+
 func (repository *PostgresRepository) Get(
 	ctx context.Context,
 	id string,
 ) (string, bool, error) {
 	var originalURL string
+	var deleted bool
 
 	err := repository.db.QueryRowContext(
 		ctx,
 		`
-			SELECT original_url
+			SELECT original_url, is_deleted
 			FROM short_urls
 			WHERE short_url = $1
 		`,
 		id,
-	).Scan(&originalURL)
+	).Scan(&originalURL, &deleted)
 
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", false, nil
@@ -285,5 +417,61 @@ func (repository *PostgresRepository) Get(
 		)
 	}
 
+	if deleted {
+		return "", true, service.ErrShortLinkDeleted
+	}
+
 	return originalURL, true, nil
+}
+
+func (repository *PostgresRepository) GetByUserID(
+	ctx context.Context,
+	userID string,
+) ([]service.ShortLink, error) {
+	rows, err := repository.db.QueryContext(
+		ctx,
+		`
+			SELECT short_url, original_url
+			FROM short_urls
+			WHERE user_id = $1
+				AND is_deleted = FALSE
+			ORDER BY id
+		`,
+		userID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"get user short links: %w",
+			err,
+		)
+	}
+	defer rows.Close()
+
+	links := make([]service.ShortLink, 0)
+
+	for rows.Next() {
+		var link service.ShortLink
+
+		if err := rows.Scan(
+			&link.ID,
+			&link.OriginalURL,
+		); err != nil {
+			return nil, fmt.Errorf(
+				"scan user short link: %w",
+				err,
+			)
+		}
+
+		link.UserID = userID
+		links = append(links, link)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf(
+			"read user short links: %w",
+			err,
+		)
+	}
+
+	return links, nil
 }

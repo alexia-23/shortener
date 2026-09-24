@@ -33,7 +33,11 @@ func TestShortLinkService_CreateShortLink(t *testing.T) {
 		Return(nil).
 		Once()
 
-	service := NewShortLinkService(repository)
+	service := NewShortLinkService(
+		coreRepositoryAdapter{
+			ShortLinkRepository: repository,
+		},
+	)
 
 	id, err := service.CreateShortLink(
 		ctx,
@@ -64,7 +68,11 @@ func TestShortLinkService_GetSourceLink(t *testing.T) {
 		).
 		Once()
 
-	service := NewShortLinkService(repository)
+	service := NewShortLinkService(
+		coreRepositoryAdapter{
+			ShortLinkRepository: repository,
+		},
+	)
 
 	originalURL, found, err := service.GetSourceLink(
 		ctx,
@@ -102,7 +110,11 @@ func TestShortLinkService_CreateShortLink_RetriesOnCollision(
 		Return(nil).
 		Once()
 
-	service := NewShortLinkService(repository)
+	service := NewShortLinkService(
+		coreRepositoryAdapter{
+			ShortLinkRepository: repository,
+		},
+	)
 
 	id, err := service.CreateShortLink(
 		ctx,
@@ -131,7 +143,11 @@ func TestShortLinkService_CreateShortLink_ReturnsErrorAfterMaxAttempts(
 		Return(ErrShortLinkIDExists).
 		Times(maxGenerateAttempts)
 
-	service := NewShortLinkService(repository)
+	service := NewShortLinkService(
+		coreRepositoryAdapter{
+			ShortLinkRepository: repository,
+		},
+	)
 
 	id, err := service.CreateShortLink(
 		ctx,
@@ -157,7 +173,11 @@ func TestShortLinkService_CreateShortLink_ReturnsExistingOriginalURLError(
 		Return(existingError).
 		Once()
 
-	service := NewShortLinkService(repository)
+	service := NewShortLinkService(
+		coreRepositoryAdapter{
+			ShortLinkRepository: repository,
+		},
+	)
 
 	id, err := service.CreateShortLink(
 		context.Background(),
@@ -194,7 +214,11 @@ func TestShortLinkService_CreateShortLinksBatch(t *testing.T) {
 		Return(nil).
 		Once()
 
-	shortLinkService := NewShortLinkService(repository)
+	shortLinkService := NewShortLinkService(
+		coreRepositoryAdapter{
+			ShortLinkRepository: repository,
+		},
+	)
 
 	ids, err := shortLinkService.CreateShortLinksBatch(
 		context.Background(),
@@ -233,7 +257,11 @@ func TestShortLinkService_CreateShortLinksBatch_RetriesCollision(
 		Return(nil).
 		Once()
 
-	shortLinkService := NewShortLinkService(repository)
+	shortLinkService := NewShortLinkService(
+		coreRepositoryAdapter{
+			ShortLinkRepository: repository,
+		},
+	)
 
 	ids, err := shortLinkService.CreateShortLinksBatch(
 		context.Background(),
@@ -247,7 +275,12 @@ func TestShortLinkService_CreateShortLinksBatch_RetriesCollision(
 
 func TestShortLinkService_CreateShortLinksBatch_Empty(t *testing.T) {
 	repository := NewMockShortLinkRepository(t)
-	shortLinkService := NewShortLinkService(repository)
+
+	shortLinkService := NewShortLinkService(
+		coreRepositoryAdapter{
+			ShortLinkRepository: repository,
+		},
+	)
 
 	ids, err := shortLinkService.CreateShortLinksBatch(
 		context.Background(),

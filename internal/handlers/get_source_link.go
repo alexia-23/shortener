@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 
+	"github.com/alexia-23/shortener/internal/service"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -16,6 +18,12 @@ func (handler *Handler) handleGetSourceLink(
 		r.Context(),
 		id,
 	)
+
+	if errors.Is(err, service.ErrShortLinkDeleted) {
+		w.WriteHeader(http.StatusGone)
+		return
+	}
+
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
