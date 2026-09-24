@@ -1,18 +1,28 @@
 package auth
 
 import (
-	"crypto/hmac"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"strings"
+	"time"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
-const userIDSize = 16
+const (
+	userIDSize    = 16
+	tokenLifetime = 30 * 24 * time.Hour
+)
 
 var ErrInvalidCookie = errors.New("invalid authentication cookie")
+
+// Claims is the shared contract for issuing and verifying authentication tokens.
+// An authenticated token without a UserID is handled as unauthorized by handlers.
+type Claims struct {
+	UserID string `json:"user_id"`
+	jwt.RegisteredClaims
+}
 
 type CookieSigner struct {
 	secretKey []byte
@@ -23,14 +33,11 @@ func NewCookieSigner(secretKey string) *CookieSigner {
 		panic("auth: empty secret key")
 	}
 
-	return &CookieSigner{
-		secretKey: []byte(secretKey),
-	}
+	return &CookieSigner{secretKey: []byte(secretKey)}
 }
 
 func GenerateUserID() (string, error) {
 	randomBytes := make([]byte, userIDSize)
-
 	if _, err := rand.Read(randomBytes); err != nil {
 		return "", fmt.Errorf("generate user ID: %w", err)
 	}
@@ -38,37 +45,47 @@ func GenerateUserID() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(randomBytes), nil
 }
 
-func (signer *CookieSigner) Sign(userID string) string {
-	signature := signer.makeSignature(userID)
+func (signer *CookieSigner) Sign(claims Claims) (string, error) {
+	now := time.Now()
 
-	return userID + "." +
-		base64.RawURLEncoding.EncodeToString(signature)
-}
-
-func (signer *CookieSigner) Verify(value string) (string, error) {
-	userID, encodedSignature, found := strings.Cut(value, ".")
-	if !found || encodedSignature == "" {
-		return "", ErrInvalidCookie
+	if claims.IssuedAt == nil {
+		claims.IssuedAt = jwt.NewNumericDate(now)
 	}
 
-	signature, err := base64.RawURLEncoding.DecodeString(encodedSignature)
+	if claims.ExpiresAt == nil {
+		claims.ExpiresAt = jwt.NewNumericDate(now.Add(tokenLifetime))
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	value, err := token.SignedString(signer.secretKey)
 	if err != nil {
-		return "", ErrInvalidCookie
+		return "", fmt.Errorf("sign authentication token: %w", err)
 	}
 
-	expectedSignature := signer.makeSignature(userID)
-
-	if !hmac.Equal(signature, expectedSignature) {
-		return "", ErrInvalidCookie
-	}
-
-	return userID, nil
+	return value, nil
 }
 
-func (signer *CookieSigner) makeSignature(userID string) []byte {
-	hash := hmac.New(sha256.New, signer.secretKey)
+func (signer *CookieSigner) Verify(value string) (Claims, error) {
+	var claims Claims
 
-	_, _ = hash.Write([]byte(userID))
+	token, err := jwt.ParseWithClaims(
+		value,
+		&claims,
+		func(_ *jwt.Token) (any, error) {
+			return signer.secretKey, nil
+		},
+		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
+		jwt.WithExpirationRequired(),
+		jwt.WithIssuedAt(),
+	)
+	if err != nil {
+		return Claims{}, fmt.Errorf("%w: %v", ErrInvalidCookie, err)
+	}
 
-	return hash.Sum(nil)
+	if !token.Valid {
+		return Claims{}, ErrInvalidCookie
+	}
+
+	return claims, nil
 }

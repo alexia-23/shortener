@@ -1,11 +1,11 @@
 package handlers
 
 type Handler struct {
-	service ShortLinkService
+	service URLService
 	baseURL string
 }
 
-func NewHandler(service ShortLinkService, baseURL string) *Handler {
+func NewHandler(service URLService, baseURL string) *Handler {
 	if service == nil {
 		panic("handlers: nil service")
 	}

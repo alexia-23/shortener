@@ -70,15 +70,15 @@ func TestAuthenticationCreatesCookie(t *testing.T) {
 		)
 	}
 
-	userID, err := signer.Verify(cookie.Value)
+	claims, err := signer.Verify(cookie.Value)
 	if err != nil {
 		t.Fatalf("Verify() error = %v", err)
 	}
 
-	if userID != gotUserID {
+	if claims.UserID != gotUserID {
 		t.Errorf(
 			"cookie user ID = %q, context user ID = %q",
-			userID,
+			claims.UserID,
 			gotUserID,
 		)
 	}
@@ -131,7 +131,7 @@ func TestAuthenticationUsesExistingValidCookie(t *testing.T) {
 
 	request.AddCookie(&http.Cookie{
 		Name:  UserCookieName,
-		Value: signer.Sign(expectedUserID),
+		Value: signedCookie(t, signer, expectedUserID),
 	})
 
 	recorder := httptest.NewRecorder()
@@ -210,7 +210,7 @@ func TestAuthenticationReplacesInvalidCookie(t *testing.T) {
 		)
 	}
 
-	newUserID, err := signer.Verify(cookies[0].Value)
+	newClaims, err := signer.Verify(cookies[0].Value)
 	if err != nil {
 		t.Fatalf(
 			"Verify() new cookie error = %v",
@@ -218,15 +218,37 @@ func TestAuthenticationReplacesInvalidCookie(t *testing.T) {
 		)
 	}
 
-	if newUserID == "" {
+	if newClaims.UserID == "" {
 		t.Fatal("new cookie contains empty user ID")
 	}
 
-	if newUserID != gotUserID {
+	if newClaims.UserID != gotUserID {
 		t.Errorf(
 			"cookie user ID = %q, context user ID = %q",
-			newUserID,
+			newClaims.UserID,
 			gotUserID,
 		)
 	}
+}
+
+func signedCookie(
+	t *testing.T,
+	signer *auth.CookieSigner,
+	userID string,
+) string {
+	t.Helper()
+
+	value, err := signer.Sign(
+		auth.Claims{
+			UserID: userID,
+		},
+	)
+	if err != nil {
+		t.Fatalf(
+			"Sign() error = %v",
+			err,
+		)
+	}
+
+	return value
 }

@@ -30,13 +30,7 @@ func (handler *Handler) handleDeleteUserURLs(
 		return
 	}
 
-	deleteService, ok := handler.service.(DeleteUserLinksService)
-	if !ok {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	deleteService.DeleteUserLinks(
+	handler.service.DeleteUserLinks(
 		userID,
 		ids,
 	)

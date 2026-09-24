@@ -14,7 +14,10 @@ import (
 func TestNewRouter(t *testing.T) {
 	service := NewMockShortLinkService(t)
 
-	router := NewRouter(service, "http://localhost:8080")
+	router := newCoreTestRouter(
+		service,
+		"http://localhost:8080",
+	)
 
 	require.NotNil(t, router)
 }
@@ -71,7 +74,10 @@ func TestRouter_Routes(t *testing.T) {
 
 			test.setupMock(service)
 
-			router := NewRouter(service, "http://localhost:8080")
+			router := newCoreTestRouter(
+				service,
+				"http://localhost:8080",
+			)
 
 			request := httptest.NewRequest(
 				test.method,
@@ -138,7 +144,10 @@ func TestRouter_InvalidRequest(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			service := NewMockShortLinkService(t)
 
-			router := NewRouter(service, "http://localhost:8080")
+			router := newCoreTestRouter(
+				service,
+				"http://localhost:8080",
+			)
 
 			request := httptest.NewRequest(
 				test.method,

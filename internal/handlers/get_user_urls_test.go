@@ -235,3 +235,10 @@ func TestHandleGetUserURLsServiceError(t *testing.T) {
 		)
 	}
 }
+
+func (*userLinksServiceStub) DeleteUserLinks(
+	string,
+	[]string,
+) {
+	panic("unexpected DeleteUserLinks call in a GetUserURLs test")
+}

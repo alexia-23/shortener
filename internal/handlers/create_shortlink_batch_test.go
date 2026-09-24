@@ -27,7 +27,11 @@ func TestHandler_handleCreateShortLinksBatch_Success(t *testing.T) {
 		Return([]string{"first-id", "second-id"}, nil).
 		Once()
 
-	router := NewRouter(service, "http://localhost:8080/")
+	router := newCoreTestRouter(
+		service,
+		"http://localhost:8080/",
+	)
+
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api/shorten/batch",
@@ -42,12 +46,14 @@ func TestHandler_handleCreateShortLinksBatch_Success(t *testing.T) {
 			}
 		]`),
 	)
+
 	request.Header.Set("Content-Type", "application/json")
 
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, request)
 
 	require.Equal(t, http.StatusCreated, recorder.Code)
+
 	assert.Equal(
 		t,
 		"application/json",
@@ -55,6 +61,7 @@ func TestHandler_handleCreateShortLinksBatch_Success(t *testing.T) {
 	)
 
 	var response []createShortLinksBatchResponseItem
+
 	require.NoError(
 		t,
 		json.NewDecoder(recorder.Body).Decode(&response),
@@ -81,9 +88,18 @@ func TestHandler_handleCreateShortLinksBatch_BadRequest(t *testing.T) {
 		name string
 		body string
 	}{
-		{name: "invalid JSON", body: `[{`},
-		{name: "empty batch", body: `[]`},
-		{name: "null batch", body: `null`},
+		{
+			name: "invalid JSON",
+			body: `[{`,
+		},
+		{
+			name: "empty batch",
+			body: `[]`,
+		},
+		{
+			name: "null batch",
+			body: `null`,
+		},
 		{
 			name: "empty original URL",
 			body: `[{
@@ -103,7 +119,8 @@ func TestHandler_handleCreateShortLinksBatch_BadRequest(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			service := NewMockShortLinkService(t)
-			router := NewRouter(
+
+			router := newCoreTestRouter(
 				service,
 				"http://localhost:8080",
 			)
@@ -113,12 +130,17 @@ func TestHandler_handleCreateShortLinksBatch_BadRequest(t *testing.T) {
 				"/api/shorten/batch",
 				strings.NewReader(test.body),
 			)
+
 			request.Header.Set("Content-Type", "application/json")
 
 			recorder := httptest.NewRecorder()
 			router.ServeHTTP(recorder, request)
 
-			assert.Equal(t, http.StatusBadRequest, recorder.Code)
+			assert.Equal(
+				t,
+				http.StatusBadRequest,
+				recorder.Code,
+			)
 		})
 	}
 }
@@ -134,7 +156,11 @@ func TestHandler_handleCreateShortLinksBatch_ServiceError(t *testing.T) {
 		Return(nil, errors.New("service error")).
 		Once()
 
-	router := NewRouter(service, "http://localhost:8080")
+	router := newCoreTestRouter(
+		service,
+		"http://localhost:8080",
+	)
+
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api/shorten/batch",
@@ -143,6 +169,7 @@ func TestHandler_handleCreateShortLinksBatch_ServiceError(t *testing.T) {
 			"original_url":"https://example.com"
 		}]`),
 	)
+
 	request.Header.Set("Content-Type", "application/json")
 
 	recorder := httptest.NewRecorder()

@@ -63,7 +63,7 @@ func TestHandler_handleGetSourceLink(t *testing.T) {
 				).
 				Once()
 
-			router := NewRouter(
+			router := newCoreTestRouter(
 				service,
 				"http://localhost:8080",
 			)

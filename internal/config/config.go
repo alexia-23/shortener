@@ -3,14 +3,18 @@ package config
 import (
 	"flag"
 	"os"
+	"time"
 )
 
 type Config struct {
-	ServerAddress   string
-	BaseURL         string
-	FileStoragePath string
-	DatabaseDSN     string
-	AuthSecretKey   string
+	ServerAddress       string
+	BaseURL             string
+	FileStoragePath     string
+	DatabaseDSN         string
+	AuthSecretKey       string
+	DeleteBatchSize     int
+	DeleteFlushInterval time.Duration
+	DeleteWorkers       int
 }
 
 func NewConfig() *Config {
@@ -49,6 +53,27 @@ func NewConfig() *Config {
 		"k",
 		"",
 		"authentication secret key",
+	)
+
+	flag.IntVar(
+		&cfg.DeleteBatchSize,
+		"delete-batch-size",
+		0,
+		"maximum deletion batch size (0 uses service default)",
+	)
+
+	flag.DurationVar(
+		&cfg.DeleteFlushInterval,
+		"delete-flush-interval",
+		0,
+		"deletion batch flush interval, e.g. 500ms or 1s (0 uses service default)",
+	)
+
+	flag.IntVar(
+		&cfg.DeleteWorkers,
+		"delete-workers",
+		0,
+		"maximum parallel deletion stream writers (0 uses service default)",
 	)
 
 	flag.Parse()

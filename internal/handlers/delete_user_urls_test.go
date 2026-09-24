@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/alexia-23/shortener/internal/auth"
+	"github.com/alexia-23/shortener/internal/service"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -227,4 +228,11 @@ func TestHandleDeleteUserURLsUnauthorized(t *testing.T) {
 		t,
 		serviceStub.called,
 	)
+}
+
+func (*deleteUserURLsServiceStub) GetUserLinks(
+	context.Context,
+	string,
+) ([]service.ShortLink, error) {
+	panic("unexpected GetUserLinks call in a DeleteUserURLs test")
 }

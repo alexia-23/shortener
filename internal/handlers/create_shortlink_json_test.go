@@ -25,7 +25,7 @@ func TestHandler_handleCreateShortLinkJSON_Success(t *testing.T) {
 		Return("MQ", nil).
 		Once()
 
-	router := NewRouter(service, "http://localhost:8080")
+	router := newCoreTestRouter(service, "http://localhost:8080")
 
 	request := httptest.NewRequest(
 		http.MethodPost,
@@ -70,7 +70,7 @@ func TestHandler_handleCreateShortLinkJSON_ServiceError(t *testing.T) {
 		Return("", errors.New("service error")).
 		Once()
 
-	router := NewRouter(service, "http://localhost:8080")
+	router := newCoreTestRouter(service, "http://localhost:8080")
 
 	request := httptest.NewRequest(
 		http.MethodPost,
@@ -108,7 +108,7 @@ func TestHandler_handleCreateShortLinkJSON_OriginalURLExists(
 		).
 		Once()
 
-	router := NewRouter(mockService, "http://localhost:8080")
+	router := newCoreTestRouter(mockService, "http://localhost:8080")
 
 	request := httptest.NewRequest(
 		http.MethodPost,
@@ -151,7 +151,7 @@ func TestHandler_handleCreateShortLinkJSON_URLWithSpaces(t *testing.T) {
 		Return("MQ", nil).
 		Once()
 
-	router := NewRouter(service, "http://localhost:8080")
+	router := newCoreTestRouter(service, "http://localhost:8080")
 
 	request := httptest.NewRequest(
 		http.MethodPost,
@@ -181,7 +181,7 @@ func TestHandler_handleCreateShortLinkJSON_BaseURLWithTrailingSlash(
 		Return("MQ", nil).
 		Once()
 
-	router := NewRouter(service, "http://localhost:8080/")
+	router := newCoreTestRouter(service, "http://localhost:8080/")
 
 	request := httptest.NewRequest(
 		http.MethodPost,
@@ -212,7 +212,7 @@ func TestHandler_handleCreateShortLinkJSON_BaseURLWithTrailingSlash(
 func TestHandler_handleCreateShortLinkJSON_EmptyBody(t *testing.T) {
 	service := NewMockShortLinkService(t)
 
-	router := NewRouter(service, "http://localhost:8080")
+	router := newCoreTestRouter(service, "http://localhost:8080")
 
 	request := httptest.NewRequest(
 		http.MethodPost,
@@ -232,7 +232,7 @@ func TestHandler_handleCreateShortLinkJSON_EmptyBody(t *testing.T) {
 func TestHandler_handleCreateShortLinkJSON_MethodNotAllowed(t *testing.T) {
 	service := NewMockShortLinkService(t)
 
-	router := NewRouter(service, "http://localhost:8080")
+	router := newCoreTestRouter(service, "http://localhost:8080")
 
 	request := httptest.NewRequest(
 		http.MethodGet,
@@ -258,7 +258,7 @@ func TestHandler_handleCreateShortLinkJSON_UppercaseURLKey(t *testing.T) {
 		Return("MQ", nil).
 		Once()
 
-	router := NewRouter(service, "http://localhost:8080")
+	router := newCoreTestRouter(service, "http://localhost:8080")
 
 	request := httptest.NewRequest(
 		http.MethodPost,
@@ -286,7 +286,7 @@ func TestHandler_handleCreateShortLinkJSON_UnknownField(t *testing.T) {
 		Return("MQ", nil).
 		Once()
 
-	router := NewRouter(service, "http://localhost:8080")
+	router := newCoreTestRouter(service, "http://localhost:8080")
 
 	request := httptest.NewRequest(
 		http.MethodPost,
@@ -345,7 +345,10 @@ func TestHandler_handleCreateShortLinkJSON_BadRequest(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			service := NewMockShortLinkService(t)
 
-			router := NewRouter(service, "http://localhost:8080")
+			router := newCoreTestRouter(
+				service,
+				"http://localhost:8080",
+			)
 
 			request := httptest.NewRequest(
 				http.MethodPost,

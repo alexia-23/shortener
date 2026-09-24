@@ -7,7 +7,7 @@ import (
 )
 
 func NewRouter(
-	service ShortLinkService,
+	service URLService,
 	baseURL string,
 	middlewares ...func(http.Handler) http.Handler,
 ) *chi.Mux {

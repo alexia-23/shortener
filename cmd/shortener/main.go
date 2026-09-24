@@ -39,7 +39,7 @@ func main() {
 	sugar := logger.Sugar()
 	cfg := config.NewConfig()
 
-	var shortLinkRepository service.ShortLinkRepository
+	var shortLinkRepository service.URLRepository
 	var pinger handlers.Pinger
 
 	if cfg.DatabaseDSN != "" {
@@ -91,7 +91,16 @@ func main() {
 
 	shortLinkService := service.NewShortLinkService(
 		shortLinkRepository,
+		service.WithDeleteConfig(
+			service.DeleteConfig{
+				BatchSize:     cfg.DeleteBatchSize,
+				FlushInterval: cfg.DeleteFlushInterval,
+				MaxWorkers:    cfg.DeleteWorkers,
+			},
+		),
 	)
+
+	defer shortLinkService.Close()
 
 	authSecretKey := cfg.AuthSecretKey
 	if authSecretKey == "" {
@@ -131,7 +140,7 @@ func main() {
 		cfg.ServerAddress,
 		router,
 	); err != nil {
-		sugar.Fatalw(
+		sugar.Errorw(
 			"server stopped",
 			"error", err,
 		)

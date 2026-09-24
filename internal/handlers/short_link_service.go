@@ -36,3 +36,10 @@ type UserLinksService interface {
 		userID string,
 	) ([]service.ShortLink, error)
 }
+
+// URLService contains every capability required by the HTTP router.
+type URLService interface {
+	ShortLinkService
+	UserLinksService
+	DeleteUserLinksService
+}

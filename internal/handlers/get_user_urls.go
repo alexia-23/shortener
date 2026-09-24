@@ -23,13 +23,7 @@ func (handler *Handler) handleGetUserURLs(
 		return
 	}
 
-	userLinksService, ok := handler.service.(UserLinksService)
-	if !ok {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	links, err := userLinksService.GetUserLinks(
+	links, err := handler.service.GetUserLinks(
 		r.Context(),
 		userID,
 	)

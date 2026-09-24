@@ -6,17 +6,13 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sort"
 	"sync"
 	"time"
 )
 
-const (
-	maxGenerateAttempts = 10
-	deleteBatchSize     = 100
-	deleteFlushInterval = 10 * time.Millisecond
-	deleteStreamBuffer  = 64
-)
+const maxGenerateAttempts = 10
 
 var (
 	ErrGenerateUniqueID  = errors.New("failed to generate unique short link ID")
@@ -72,6 +68,14 @@ type UserLinksRepository interface {
 	) ([]ShortLink, error)
 }
 
+// URLRepository is the complete dependency required by ShortLinkService.
+// Implementations missing user lookup or deletion fail to compile at wiring.
+type URLRepository interface {
+	ShortLinkRepository
+	UserLinksRepository
+	DeleteShortLinkRepository
+}
+
 type ShortLink struct {
 	ID          string
 	OriginalURL string
@@ -84,26 +88,37 @@ type DeleteShortLink struct {
 }
 
 type ShortLinkService struct {
-	repository       ShortLinkRepository
-	deleteRepository DeleteShortLinkRepository
-	deleteStreams    chan (<-chan DeleteShortLink)
-	deleteOnce       sync.Once
+	repository    URLRepository
+	deleteConfig  DeleteConfig
+	deleteStreams chan (<-chan DeleteShortLink)
+	deleteOnce    sync.Once
+	deleteMu      sync.RWMutex
+	deleteClosed  bool
+	deleteDone    chan struct{}
 }
 
 func NewShortLinkService(
-	repository ShortLinkRepository,
+	repository URLRepository,
+	options ...Option,
 ) *ShortLinkService {
-	service := &ShortLinkService{
-		repository: repository,
-		deleteStreams: make(
-			chan (<-chan DeleteShortLink),
-			deleteStreamBuffer,
-		),
+	if repository == nil {
+		panic("service: nil repository")
 	}
 
-	if deleteRepository, ok := repository.(DeleteShortLinkRepository); ok {
-		service.deleteRepository = deleteRepository
+	service := &ShortLinkService{
+		repository:   repository,
+		deleteConfig: DefaultDeleteConfig(),
+		deleteDone:   make(chan struct{}),
 	}
+
+	for _, option := range options {
+		option(service)
+	}
+
+	service.deleteStreams = make(
+		chan (<-chan DeleteShortLink),
+		service.deleteConfig.StreamBuffer,
+	)
 
 	return service
 }
@@ -219,14 +234,7 @@ func (service *ShortLinkService) GetUserLinks(
 	ctx context.Context,
 	userID string,
 ) ([]ShortLink, error) {
-	repository, ok := service.repository.(UserLinksRepository)
-	if !ok {
-		return nil, errors.New(
-			"repository does not support user links",
-		)
-	}
-
-	links, err := repository.GetByUserID(
+	links, err := service.repository.GetByUserID(
 		ctx,
 		userID,
 	)
@@ -247,6 +255,8 @@ func (service *ShortLinkService) GetUserLinks(
 	return links, nil
 }
 
+// DeleteUserLinks queues a request without waiting for database deletion.
+// A full bounded queue applies backpressure instead of spawning more goroutines.
 func (service *ShortLinkService) DeleteUserLinks(
 	userID string,
 	ids []string,
@@ -254,16 +264,6 @@ func (service *ShortLinkService) DeleteUserLinks(
 	if userID == "" || len(ids) == 0 {
 		return
 	}
-
-	if service.deleteRepository == nil {
-		return
-	}
-
-	service.deleteOnce.Do(func() {
-		merged := fanIn(service.deleteStreams)
-
-		go service.processDeleteBatches(merged)
-	})
 
 	stream := make(
 		chan DeleteShortLink,
@@ -298,32 +298,87 @@ func (service *ShortLinkService) DeleteUserLinks(
 		return
 	}
 
+	// Hold a read lock until enqueueing is finished so Close cannot close
+	// deleteStreams while a concurrent caller is sending to it.
+	service.deleteMu.RLock()
+	defer service.deleteMu.RUnlock()
+
+	if service.deleteClosed {
+		return
+	}
+
+	service.deleteOnce.Do(func() {
+		merged := fanIn(
+			service.deleteStreams,
+			service.deleteConfig,
+		)
+
+		go func() {
+			defer close(service.deleteDone)
+
+			service.processDeleteBatches(merged)
+		}()
+	})
+
 	service.deleteStreams <- stream
+}
+
+// Close drains all accepted deletion requests, flushes the last batch and
+// waits for the background pipeline to stop. It is safe to call more than once.
+// The HTTP server must stop accepting requests before calling Close.
+func (service *ShortLinkService) Close() {
+	service.deleteMu.Lock()
+
+	if !service.deleteClosed {
+		service.deleteClosed = true
+		close(service.deleteStreams)
+
+		// If deletion was never started, there is no worker to close deleteDone.
+		service.deleteOnce.Do(func() {
+			close(service.deleteDone)
+		})
+	}
+
+	service.deleteMu.Unlock()
+
+	<-service.deleteDone
 }
 
 func fanIn(
 	streams <-chan (<-chan DeleteShortLink),
+	config DeleteConfig,
 ) <-chan DeleteShortLink {
 	result := make(
 		chan DeleteShortLink,
-		deleteBatchSize,
+		config.BatchSize,
+	)
+
+	semaphore := make(
+		chan struct{},
+		config.MaxWorkers,
 	)
 
 	go func() {
 		var wg sync.WaitGroup
 
 		for stream := range streams {
-			stream := stream
+			// Acquire BEFORE starting a goroutine. Acquiring inside it would
+			// still allow an unbounded number of goroutines waiting for a slot.
+			semaphore <- struct{}{}
 
 			wg.Add(1)
 
-			go func() {
+			go func(input <-chan DeleteShortLink) {
 				defer wg.Done()
 
-				for link := range stream {
+				defer func() {
+					<-semaphore
+				}()
+
+				for link := range input {
 					result <- link
 				}
-			}()
+			}(stream)
 		}
 
 		wg.Wait()
@@ -337,14 +392,14 @@ func (service *ShortLinkService) processDeleteBatches(
 	input <-chan DeleteShortLink,
 ) {
 	ticker := time.NewTicker(
-		deleteFlushInterval,
+		service.deleteConfig.FlushInterval,
 	)
 	defer ticker.Stop()
 
 	batch := make(
 		[]DeleteShortLink,
 		0,
-		deleteBatchSize,
+		service.deleteConfig.BatchSize,
 	)
 
 	flush := func() {
@@ -352,10 +407,27 @@ func (service *ShortLinkService) processDeleteBatches(
 			return
 		}
 
-		_ = service.deleteRepository.DeleteBatch(
+		ctx, cancel := context.WithTimeout(
 			context.Background(),
+			service.deleteConfig.QueryTimeout,
+		)
+
+		err := service.repository.DeleteBatch(
+			ctx,
 			batch,
 		)
+
+		cancel()
+
+		if err != nil {
+			slog.Error(
+				"failed to delete short links",
+				"error",
+				err,
+				"batch_size",
+				len(batch),
+			)
+		}
 
 		batch = batch[:0]
 	}
@@ -373,7 +445,7 @@ func (service *ShortLinkService) processDeleteBatches(
 				link,
 			)
 
-			if len(batch) >= deleteBatchSize {
+			if len(batch) >= service.deleteConfig.BatchSize {
 				flush()
 			}
 

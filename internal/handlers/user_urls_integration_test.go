@@ -18,6 +18,7 @@ func TestUserURLsFlow(t *testing.T) {
 	shortLinkService := service.NewShortLinkService(
 		memoryRepository,
 	)
+	t.Cleanup(shortLinkService.Close)
 
 	signer := auth.NewCookieSigner(
 		"test-secret-key",
@@ -161,6 +162,7 @@ func TestUserURLsInvalidCookieIsReplaced(t *testing.T) {
 	shortLinkService := service.NewShortLinkService(
 		memoryRepository,
 	)
+	t.Cleanup(shortLinkService.Close)
 
 	signer := auth.NewCookieSigner(
 		"test-secret-key",
@@ -211,7 +213,7 @@ func TestUserURLsInvalidCookieIsReplaced(t *testing.T) {
 		)
 	}
 
-	userID, err := signer.Verify(
+	claims, err := signer.Verify(
 		cookies[0].Value,
 	)
 	if err != nil {
@@ -221,7 +223,7 @@ func TestUserURLsInvalidCookieIsReplaced(t *testing.T) {
 		)
 	}
 
-	if userID == "" {
+	if claims.UserID == "" {
 		t.Fatal(
 			"replacement cookie contains empty user ID",
 		)
@@ -235,6 +237,7 @@ func TestUserURLsValidCookieWithoutUserIDUnauthorized(
 	shortLinkService := service.NewShortLinkService(
 		memoryRepository,
 	)
+	t.Cleanup(shortLinkService.Close)
 
 	signer := auth.NewCookieSigner(
 		"test-secret-key",
@@ -255,7 +258,7 @@ func TestUserURLsValidCookieWithoutUserIDUnauthorized(
 	request.AddCookie(
 		&http.Cookie{
 			Name:  middleware.UserCookieName,
-			Value: signer.Sign(""),
+			Value: signedAuthCookie(t, signer, ""),
 		},
 	)
 
@@ -273,4 +276,26 @@ func TestUserURLsValidCookieWithoutUserIDUnauthorized(
 			http.StatusUnauthorized,
 		)
 	}
+}
+
+func signedAuthCookie(
+	t *testing.T,
+	signer *auth.CookieSigner,
+	userID string,
+) string {
+	t.Helper()
+
+	value, err := signer.Sign(
+		auth.Claims{
+			UserID: userID,
+		},
+	)
+	if err != nil {
+		t.Fatalf(
+			"Sign() error = %v",
+			err,
+		)
+	}
+
+	return value
 }

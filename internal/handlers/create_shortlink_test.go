@@ -138,7 +138,10 @@ func TestHandler_handleCreateShortLink(t *testing.T) {
 					Once()
 			}
 
-			router := NewRouter(service, "http://localhost:8080")
+			router := newCoreTestRouter(
+				service,
+				"http://localhost:8080",
+			)
 
 			request := httptest.NewRequest(
 				http.MethodPost,
@@ -200,7 +203,10 @@ func TestHandler_handleCreateShortLink_OriginalURLExists(t *testing.T) {
 		).
 		Once()
 
-	router := NewRouter(mockService, "http://localhost:8080")
+	router := newCoreTestRouter(
+		mockService,
+		"http://localhost:8080",
+	)
 
 	request := httptest.NewRequest(
 		http.MethodPost,

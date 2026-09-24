@@ -57,9 +57,9 @@ func getOrCreateUserID(
 	cookie, err := r.Cookie(UserCookieName)
 
 	if err == nil {
-		userID, verifyErr := signer.Verify(cookie.Value)
+		claims, verifyErr := signer.Verify(cookie.Value)
 		if verifyErr == nil {
-			return userID, nil
+			return claims.UserID, nil
 		}
 	}
 
@@ -78,11 +78,23 @@ func getOrCreateUserID(
 		)
 	}
 
+	cookieValue, err := signer.Sign(
+		auth.Claims{
+			UserID: userID,
+		},
+	)
+	if err != nil {
+		return "", fmt.Errorf(
+			"sign authentication cookie: %w",
+			err,
+		)
+	}
+
 	http.SetCookie(
 		w,
 		&http.Cookie{
 			Name:     UserCookieName,
-			Value:    signer.Sign(userID),
+			Value:    cookieValue,
 			Path:     "/",
 			HttpOnly: true,
 			SameSite: http.SameSiteLaxMode,

@@ -72,7 +72,14 @@ func TestShortLinkService_DeleteUserLinks(t *testing.T) {
 
 	shortLinkService := NewShortLinkService(
 		repository,
+		WithDeleteConfig(
+			DeleteConfig{
+				FlushInterval: 5 * time.Millisecond,
+			},
+		),
 	)
+
+	t.Cleanup(shortLinkService.Close)
 
 	returned := make(chan struct{})
 
@@ -125,4 +132,11 @@ func TestShortLinkService_DeleteUserLinks(t *testing.T) {
 	)
 
 	repository.unblock()
+}
+
+func (*deleteRepositoryStub) GetByUserID(
+	context.Context,
+	string,
+) ([]ShortLink, error) {
+	panic("unexpected GetByUserID call in a deletion test")
 }
