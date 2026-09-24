@@ -183,11 +183,15 @@ func (repository *PostgresRepository) SaveBatch(
 	userID, hasUserID := auth.UserIDFromContext(ctx)
 
 	values := make([]string, 0, len(uniqueLinks))
-	var args []any
+
+	argsPerLink := 2
+	if hasUserID {
+		argsPerLink = 3
+	}
+
+	args := make([]any, 0, len(uniqueLinks)*argsPerLink)
 
 	if hasUserID {
-		args = make([]any, 0, len(uniqueLinks)*3)
-
 		for index, link := range uniqueLinks {
 			firstPlaceholder := index*3 + 1
 			secondPlaceholder := firstPlaceholder + 1
@@ -211,8 +215,6 @@ func (repository *PostgresRepository) SaveBatch(
 			)
 		}
 	} else {
-		args = make([]any, 0, len(uniqueLinks)*2)
-
 		for index, link := range uniqueLinks {
 			firstPlaceholder := index*2 + 1
 			secondPlaceholder := firstPlaceholder + 1
