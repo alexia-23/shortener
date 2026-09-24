@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/alexia-23/shortener/internal/auth"
 	"github.com/alexia-23/shortener/internal/middleware"
@@ -15,6 +16,7 @@ import (
 
 func TestUserURLsFlow(t *testing.T) {
 	memoryRepository := repository.NewMemoryRepository()
+
 	shortLinkService := service.NewShortLinkService(
 		memoryRepository,
 	)
@@ -159,6 +161,7 @@ func TestUserURLsFlow(t *testing.T) {
 
 func TestUserURLsInvalidCookieIsReplaced(t *testing.T) {
 	memoryRepository := repository.NewMemoryRepository()
+
 	shortLinkService := service.NewShortLinkService(
 		memoryRepository,
 	)
@@ -234,6 +237,7 @@ func TestUserURLsValidCookieWithoutUserIDUnauthorized(
 	t *testing.T,
 ) {
 	memoryRepository := repository.NewMemoryRepository()
+
 	shortLinkService := service.NewShortLinkService(
 		memoryRepository,
 	)
@@ -274,6 +278,159 @@ func TestUserURLsValidCookieWithoutUserIDUnauthorized(
 			"status code = %d, want %d",
 			recorder.Code,
 			http.StatusUnauthorized,
+		)
+	}
+}
+
+func TestDeletedUserURLDisappearsFromListAndReturnsGone(
+	t *testing.T,
+) {
+	memoryRepository := repository.NewMemoryRepository()
+
+	shortLinkService := service.NewShortLinkService(
+		memoryRepository,
+		service.WithDeleteConfig(
+			service.DeleteConfig{
+				FlushInterval: 5 * time.Millisecond,
+			},
+		),
+	)
+	t.Cleanup(shortLinkService.Close)
+
+	signer := auth.NewCookieSigner(
+		"test-secret-key",
+	)
+
+	router := NewRouter(
+		shortLinkService,
+		"http://localhost:8080",
+		middleware.Authentication(signer),
+	)
+
+	createRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/",
+		strings.NewReader(
+			"https://example.com/deleted",
+		),
+	)
+	createRequest.Header.Set(
+		"Content-Type",
+		"text/plain",
+	)
+
+	createRecorder := httptest.NewRecorder()
+
+	router.ServeHTTP(
+		createRecorder,
+		createRequest,
+	)
+
+	if createRecorder.Code != http.StatusCreated {
+		t.Fatalf(
+			"create status code = %d, want %d",
+			createRecorder.Code,
+			http.StatusCreated,
+		)
+	}
+
+	cookies := createRecorder.Result().Cookies()
+	if len(cookies) != 1 {
+		t.Fatalf(
+			"cookies count = %d, want 1",
+			len(cookies),
+		)
+	}
+
+	shortURL := strings.TrimSpace(
+		createRecorder.Body.String(),
+	)
+
+	parts := strings.Split(
+		strings.TrimRight(shortURL, "/"),
+		"/",
+	)
+
+	id := parts[len(parts)-1]
+
+	deleteRequest := httptest.NewRequest(
+		http.MethodDelete,
+		"/api/user/urls",
+		strings.NewReader(
+			`["`+id+`"]`,
+		),
+	)
+	deleteRequest.Header.Set(
+		"Content-Type",
+		"application/json",
+	)
+	deleteRequest.AddCookie(cookies[0])
+
+	deleteRecorder := httptest.NewRecorder()
+
+	router.ServeHTTP(
+		deleteRecorder,
+		deleteRequest,
+	)
+
+	if deleteRecorder.Code != http.StatusAccepted {
+		t.Fatalf(
+			"delete status code = %d, want %d",
+			deleteRecorder.Code,
+			http.StatusAccepted,
+		)
+	}
+
+	deadline := time.Now().Add(time.Second)
+
+	for {
+		sourceRequest := httptest.NewRequest(
+			http.MethodGet,
+			"/"+id,
+			nil,
+		)
+
+		sourceRecorder := httptest.NewRecorder()
+
+		router.ServeHTTP(
+			sourceRecorder,
+			sourceRequest,
+		)
+
+		if sourceRecorder.Code == http.StatusGone {
+			break
+		}
+
+		if time.Now().After(deadline) {
+			t.Fatalf(
+				"short URL status code = %d, want %d",
+				sourceRecorder.Code,
+				http.StatusGone,
+			)
+		}
+
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	listRequest := httptest.NewRequest(
+		http.MethodGet,
+		"/api/user/urls",
+		nil,
+	)
+	listRequest.AddCookie(cookies[0])
+
+	listRecorder := httptest.NewRecorder()
+
+	router.ServeHTTP(
+		listRecorder,
+		listRequest,
+	)
+
+	if listRecorder.Code != http.StatusNoContent {
+		t.Fatalf(
+			"list status code = %d, want %d",
+			listRecorder.Code,
+			http.StatusNoContent,
 		)
 	}
 }

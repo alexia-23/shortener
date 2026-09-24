@@ -122,6 +122,10 @@ func (repository *MemoryRepository) GetByUserID(
 			continue
 		}
 
+		if repository.deleted[id] {
+			continue
+		}
+
 		links = append(
 			links,
 			service.ShortLink{

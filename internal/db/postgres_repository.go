@@ -434,6 +434,7 @@ func (repository *PostgresRepository) GetByUserID(
 			SELECT short_url, original_url
 			FROM short_urls
 			WHERE user_id = $1
+				AND is_deleted = FALSE
 			ORDER BY id
 		`,
 		userID,
